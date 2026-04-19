@@ -26,7 +26,7 @@ class ModulePair:
     xpu_mod: ModuleType
     xpu_ndi_mod: ModuleType
 
-class _SupportedBackends(StrEnum):
+class SupportedBackends(StrEnum):
     """
     All execution backends supported by this code base
     """
@@ -34,7 +34,7 @@ class _SupportedBackends(StrEnum):
     CPY_NAME: str = "cupy"
 
 REGIS_BACKENDS_DICT: dict[str, ModulePair] = {}
-REGIS_BACKENDS_DICT[_SupportedBackends.NPY_NAME] = \
+REGIS_BACKENDS_DICT[SupportedBackends.NPY_NAME] = \
                               ModulePair(npy, npy_ndi)
 NDArrayFloat: TypeAlias = npy_typing.NDArray[npy.floating]
 NDArrayUint8: TypeAlias = npy_typing.NDArray[npy.uint8]
@@ -43,7 +43,7 @@ try:
     import cupy as cpy
     import cupyx.scipy.ndimage as cpy_ndi
     from cupy import typing as cpy_typing
-    REGIS_BACKENDS_DICT[_SupportedBackends.CPY_NAME] = \
+    REGIS_BACKENDS_DICT[SupportedBackends.CPY_NAME] = \
                                   ModulePair(cpy, cpy_ndi)
     NDArrayFloat = Union[npy_typing.NDArray[npy.floating],
                          cpy_typing.NDArray[cpy.floating]]
