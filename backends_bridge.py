@@ -4,8 +4,15 @@ Definitions of variables and classes used to bridge custom
 """
 from dataclasses import dataclass
 from types import ModuleType
+from typing import Union, TypeAlias
+import sys
+from numpy import typing as npy_typing
 import numpy as npy
 import scipy.ndimage as npy_ndi
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    from backports.strenum import StrEnum
 
 @dataclass(frozen=True)
 class ModulePair:
@@ -19,15 +26,28 @@ class ModulePair:
     xpu_mod: ModuleType
     xpu_ndi_mod: ModuleType
 
-BACKENDS_MAP: dict[str, ModulePair] = {}
+class _SupportedBackends(StrEnum):
+    """
+    All execution backends supported by this code base
+    """
+    NPY_NAME: str = "numpy"
+    CPY_NAME: str = "cupy"
 
-
-BACKENDS_MAP["numpy"] = ModulePair(npy, npy_ndi)
-
+REGIS_BACKENDS_DICT: dict[str, ModulePair] = {}
+REGIS_BACKENDS_DICT[_SupportedBackends.NPY_NAME] = \
+                              ModulePair(npy, npy_ndi)
+NDArrayFloat: TypeAlias = npy_typing.NDArray[npy.floating]
+NDArrayInt: TypeAlias = npy_typing.NDArray[npy.signedinteger]
 
 try:
     import cupy as cpy
     import cupyx.scipy.ndimage as cpy_ndi
-    BACKENDS_MAP["cupy"] = ModulePair(cpy, cpy_ndi)
+    from cupy import typing as cpy_typing
+    REGIS_BACKENDS_DICT[_SupportedBackends.CPY_NAME] = \
+                                  ModulePair(cpy, cpy_ndi)
+    NDArrayFloat = Union[npy_typing.NDArray[npy.floating],
+                         cpy_typing.NDArray[cpy.floating]]
+    NDArrayInt = Union[npy_typing.NDArray[npy.signedinteger],
+                       cpy_typing.NDArray[cpy.signedinteger]]
 except ModuleNotFoundError:
     pass
