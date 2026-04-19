@@ -37,7 +37,7 @@ REGIS_BACKENDS_DICT: dict[str, ModulePair] = {}
 REGIS_BACKENDS_DICT[_SupportedBackends.NPY_NAME] = \
                               ModulePair(npy, npy_ndi)
 NDArrayFloat: TypeAlias = npy_typing.NDArray[npy.floating]
-NDArrayInt: TypeAlias = npy_typing.NDArray[npy.signedinteger]
+NDArrayUint8: TypeAlias = npy_typing.NDArray[npy.uint8]
 
 try:
     import cupy as cpy
@@ -47,7 +47,7 @@ try:
                                   ModulePair(cpy, cpy_ndi)
     NDArrayFloat = Union[npy_typing.NDArray[npy.floating],
                          cpy_typing.NDArray[cpy.floating]]
-    NDArrayInt = Union[npy_typing.NDArray[npy.signedinteger],
-                       cpy_typing.NDArray[cpy.signedinteger]]
+    NDArrayUint8 = Union[npy_typing.NDArray[npy.uint8],
+                             cpy_typing.NDArray[cpy.uint8]]
 except ModuleNotFoundError:
     pass
