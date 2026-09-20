@@ -1,6 +1,9 @@
-"""
-Implementation of vectorized double thresholding for Canny edge
-   detector vendored from scikit-image TODO: version here
+"""Backend-generalized CCL double hysteresis adapted from scikit-image.
+
+The reference was the then-current ``skimage/feature/_canny.py`` on the
+scikit-image main branch, and this adaptation was in use by May 16, 2025. The
+exact upstream commit was not recorded. See ``THIRD_PARTY_NOTICES.md`` for
+attribution and license terms.
 """
 from _backends_bridge import (
     ModulePair,

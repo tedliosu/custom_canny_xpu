@@ -1,7 +1,4 @@
-"""
-Definitions of variables and classes used to bridge custom
-    canny pipeline to various execution backends.
-"""
+"""Backend definitions used by the custom Canny operator."""
 from dataclasses import dataclass
 from types import ModuleType
 from typing import Union, TypeAlias
