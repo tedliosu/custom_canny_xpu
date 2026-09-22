@@ -157,6 +157,17 @@ implementation before assuming shared-memory/LDS tiling will win. For CCL,
 recognize that parent traversal can escape a tile; shared-memory CCL normally
 requires an algorithmic redesign rather than a local substitution.
 
+The refined CPU/GPU prototype comparison is meaningful but not
+architecture-pure: its CPU CCL exposes less multicore parallelism than its
+custom GPU CCL.
+Do not present that asymmetry as either a perfectly fair hardware comparison or
+an obvious unfinished loop optimization. Serious multicore CCL can require
+partitioning, label-range management, border-equivalence merging, and a
+specialized solver. A major algorithmic change to one backend needs a
+meaningful counterpart, analogue, or explicit justification on the other when
+it materially changes the comparison. Deep cross-backend CCL redesign is a
+separate scope decision.
+
 ## Alpha artifact policy
 
 Historical alpha implementations are learning artifacts representing a
@@ -174,6 +185,15 @@ fixes, shared orchestration and timing needed for fair comparison, and explicit
 maintainer-approved exceptions. Do not run very large flat images through
 alpha implementations: their logical working sets and temporary arrays can
 cause severe memory growth or GPU OOM.
+
+Do not express alpha safety as a universal pixel-count threshold. In the
+inspected full-2D Gaussian, `K = 2 * ceil(4 * sigma) + 1` and the logical
+float32 window footprint is approximately `height * width * K^2 * 4` bytes.
+The view is strided rather than fully allocated, but contraction packing,
+workspace, and materialization can still exhaust memory. The near-25-MP OOM
+observation applies only around `sigma=1.5` on the tested RTX 5000 Ada 32 GB
+configuration. Consult `docs/alpha-memory-scaling.md` before changing or
+running alpha artifacts.
 
 The alpha location and its exact lint/type-check policy remain undecided. Do
 not decide them implicitly while doing unrelated work.
@@ -233,6 +253,11 @@ After meaningful numerical or performance changes, verify:
 - optional-dependency absence and explicit forced-backend failures; and
 - workspace reuse without stale-data contamination.
 
+Exercise hysteresis on multiple content classes, not resolution alone. Record
+foreground density and component/connectivity characteristics when practical;
+component counts, sizes, chain structure, and propagation behavior can change
+CCL performance dramatically at fixed dimensions.
+
 A few CPU/GPU pixel differences near floating-point or threshold boundaries
 may be acceptable. Do not establish a numeric tolerance from one convenient
 image, and do not game disagreement measurements with dilation or other
@@ -278,6 +303,12 @@ Do not claim:
 - that an entire operator improved by a stage-specific speedup; or
 - that MI300X-versus-Ada results isolate hardware architecture from software,
   compiler, runtime, environment, and tuning differences.
+
+Do not create matching internal stage timings for third-party references by
+vendoring their implementations, patching installed packages, or depending on
+private APIs. Use clean public timing boundaries when available. Asymmetric
+stage detail is acceptable because the references are semantic or contextual
+baselines rather than reverse-engineering targets.
 
 ## Dependencies and environment safety
 
@@ -334,8 +365,11 @@ machinery, and do not apply it to the separate ROCm bootstrap repository. That
 project's `cuda::std` and version-sensitive `__hip_internal` compatibility
 smoke has its own narrower contract.
 
-Some NMS and historical convolution work was substantially LLM-assisted.
-Review distinctive or substantial generated code more closely for correctness
+Some NMS and historical convolution work was substantially LLM-assisted. The
+experimental cc3d binding layer and much of its compilation/build scaffolding
+were also substantially ChatGPT-assisted; the maintainer directed, tested,
+benchmarked, validated, and integrated that work. Review distinctive or
+substantial generated code more closely for correctness
 and provenance. LLM disclosure does not substitute for source review,
 validation, or licensing analysis, and agents must not replace the
 maintainer's engineering judgment.
@@ -356,6 +390,12 @@ Do not turn this repository into:
 OpenCV is useful mature implementation context, not an optimization mandate.
 cuCIM/hipCIM is a useful directly interoperable GPU reference where available.
 Kornia may be useful PyTorch-native context but need not be a primary baseline.
+For ordinary usage, prefer mature libraries when they meet the required
+semantics and deployment constraints. The custom operator exists to study the
+operator stack, not to recommend hand-written Canny as the default production
+choice. CPU remains a meaningful backend for deployment availability,
+CPU-resident data, smaller workloads, debugging, packaging, and systems without
+a usable GPU stack.
 
 No `CONTRIBUTING.md` or `SECURITY.md` is required under the current solo,
 experimental project model. Reconsider them only if external participation,

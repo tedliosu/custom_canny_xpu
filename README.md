@@ -5,6 +5,13 @@ Canny-style edge-detection operator for NumPy/SciPy on CPU and CuPy/CuPyX on
 GPU. The project explores how backend-appropriate implementations of one
 high-level contract behave across CPU, CUDA, and ROCm execution.
 
+For ordinary use, prefer a mature library implementation when it satisfies the
+required semantics, deployment constraints, and performance needs. This
+project studies the operator stack itself: allocations, materialization,
+dataflow, workspace reuse, dtype behavior, backend differences, NMS, and
+CCL-based hysteresis that a black-box call normally hides. It is not a general
+recommendation to rewrite Canny by hand.
+
 This is an early repository. The checkout currently contains a small
 NumPy/CuPy backend registry and a connected-component-labeling (CCL) form of
 double hysteresis. The complete experimental CPU and GPU implementations still
@@ -49,6 +56,10 @@ Hysteresis follows the scikit-image-style decomposition: label the
 low-threshold mask, identify components containing at least one high-threshold
 pixel, and retain those components. CPU and GPU implementations may use
 different labeling machinery while preserving that high-level behavior.
+The refined prototype comparison is useful but not architecture-pure: its CPU
+CCL exposes less multicore parallelism than its custom GPU CCL.
+Removing that asymmetry rigorously would require deeper, cross-backend CCL
+design and validation that is outside the current scope.
 
 Grayscale conversion, filtering, gradients, and NMS mostly use predictable,
 local access patterns over pixel data. CCL-based hysteresis involves root
@@ -70,6 +81,8 @@ irregular connectivity remains hard.
   agent-assisted development.
 - `docs/historical-engineering-notes.md` preserves dated prototype findings
   without treating them as current benchmark guarantees.
+- `docs/alpha-memory-scaling.md` records the inspected alpha prototypes'
+  parameter-dependent memory risks and separates observations from estimates.
 
 The current modules are implementation scaffolding, not a stable public API.
 Function names, package layout, supported versions, and installation commands
@@ -113,6 +126,9 @@ implementation. Once added to the repository, do not modernize away their
 architectural character. Correctness fixes, shared orchestration, and rigorous
 timing may be appropriate, but large images are unsafe for these versions: the
 logical window tensors and NMS intermediates can exhaust even large GPU memory.
+There is no universal pixel-count cutoff. The dominant Gaussian exposure scales
+approximately with pixels times kernel area, and kernel area grows with
+`sigma`; see [`docs/alpha-memory-scaling.md`](docs/alpha-memory-scaling.md).
 The final location and degree of separation between alpha and refined code are
 still open design decisions.
 
@@ -157,6 +173,11 @@ Record, as applicable:
 - synthetic/random versus natural-image inputs; and
 - semantic/reference versus specialized/performance-oriented implementations.
 
+Hysteresis must be exercised on multiple content classes. Its connectivity
+graph, component distribution, root-chain behavior, and convergence can change
+substantially even at fixed dimensions, so a single MPix/s figure is not a
+content-independent characterization.
+
 Use `time.perf_counter()` as the host timing source. GPU timing regions must
 have an explicit synchronization boundary so asynchronous work is not reported
 as completed. A future harness should support blocks of iterations with one
@@ -176,6 +197,18 @@ Useful baselines serve different purposes:
 - the refined CuPy/CuPyX implementation: custom CUDA/ROCm GPU;
 - cuCIM/hipCIM: directly interoperable GPU-library context where available;
 - OpenCV: mature production-native context, not a required semantic match.
+
+cuCIM is the primary serious CUDA library baseline because it accepts CuPy
+arrays directly and offers a scikit-image-style Canny operator. An informal
+inquiry in the Python Community Discord did not identify a faster directly
+CuPy-compatible alternative. That reconnaissance was not a literature review,
+expert certification, or proof that no faster implementation exists.
+
+Detailed internal stage timing is primarily for code owned by this repository.
+For third-party references, prefer public timing boundaries such as the whole
+Canny operator, grayscale plus Canny, and device-only versus transfer-inclusive
+execution. Do not vendor or patch a reference, modify site-packages, or depend
+on private APIs merely to manufacture matching stage boundaries.
 
 ## Dependencies and environments
 
@@ -210,7 +243,11 @@ This repository is not intended to:
   execution-motif study;
 - add batch/video APIs before the single-image contract is stable; or
 - begin a major new CCL algorithm or framework rewrite without a separate
-  scope decision.
+  scope decision;
+- become a comparative multicore-CPU/GPU CCL study with Canny only as its
+  wrapper; or
+- reverse-engineer and instrument every internal stage of third-party Canny
+  implementations.
 
 Future batch/video experiments are plausible. Likely directions include
 per-worker reusable CPU workspaces without nested oversubscription, and
@@ -255,9 +292,13 @@ provenance is that the reference came from scikit-image's then-current main
 branch and the resulting implementation was already in use by May 16, 2025.
 The exact upstream commit was not recorded and should remain explicitly
 unknown. Some historical NMS and alpha convolution code was drafted
-substantially with ChatGPT assistance. Avoid implying that these algorithms
-were invented here, and prefer small, explicit compatibility code over
-recreating third-party infrastructure.
+substantially with ChatGPT assistance. The experimental cc3d Cython/C++ binding
+and much of its build scaffolding were also substantially ChatGPT-assisted;
+the maintainer defined the API and preallocation goals, tested and benchmarked
+the result, evaluated alternatives, and set its integration and licensing
+boundaries. Avoid implying that these algorithms were invented here, and
+prefer small, explicit compatibility code over recreating third-party
+infrastructure.
 
 All code and documentation in this repository have been drafted with help from
 ChatGPT-family models available circa 2025–2026. Architecture, support

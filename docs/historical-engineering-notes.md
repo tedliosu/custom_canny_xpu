@@ -43,20 +43,22 @@ CuPy kernels on GPU, local per-output-pixel NMS, fewer full-image passes, and
 reusable workspaces. Their important difference is dataflow and materialization,
 not simply “vectorized Python versus a lower-level language.”
 
-At `sigma=1.5`, the alpha Gaussian kernel is 13x13. For a roughly 23.23 MP
-image, its sliding window represents about 3.93 billion logical float32
-elements, or about 15.7 GB, before considering other live data. The view itself
-does not allocate that tensor, but a generic contraction over the highly
-strided logical data can involve costly traversal, packing, temporary storage,
-or workspace. Alpha NMS also materializes coordinate grids, normalized gradient
-components, forward/backward subpixel coordinates, integer coordinates,
-gathers, weights, interpolated values, and masks.
+The alpha Gaussian kernel width is `K = 2 * ceil(4 * sigma) + 1`. Its logical
+float32 window footprint is approximately `H * W * K^2 * 4` bytes. At
+approximately 24 MP, that is about 16.2 GB for `sigma=1.5` (`K=13`), 27.7 GB
+for `sigma=2.0` (`K=17`), 42.3 GB for `sigma=2.5` (`K=21`), and 60 GB for
+`sigma=3.0` (`K=25`). The strided view does not allocate that complete tensor,
+but a generic contraction can involve packing, temporary storage, or workspace
+while other full-image arrays remain live. Alpha NMS also materializes many
+image-sized coordinate, gather, interpolation, and mask arrays.
 
-This explains both the speed difference and memory scaling. The alpha GPU
-prototype approached OOM above roughly the 25 MP class on an RTX 5000 Ada with
-32 GB VRAM. The refined approach scales substantially better by avoiding those
-large intermediates. Do not run alpha code on very large flat images by
-default.
+The observed result was that the alpha GPU prototype approached OOM near the
+25 MP class at approximately `sigma=1.5` on an RTX 5000 Ada with 32 GB VRAM.
+It is not a universal pixel threshold: the dominant exposure scales with
+pixels times Gaussian kernel area, so increasing `sigma` can cause OOM at the
+same or smaller dimensions. The refined separable approach does not share this
+pathological scaling. See `alpha-memory-scaling.md` for the source-inspected
+parameter inventory and evidence classifications.
 
 ## Correctness observations
 
@@ -85,6 +87,13 @@ warm refined CPU results were:
 - common stage ranges of roughly 43–51 ms blur, 47–55 ms gradients, 27–31 ms
   NMS, and 75–79 ms hysteresis with the optional binding; and
 - roughly 0.57–0.58 s for the scikit-image Canny reference.
+
+A more recent run on `piermanuele-sberni-unsplash_convd.png` (3938x5899,
+23,230,262 pixels) reported Canny-only trials of about 203.491 ms and 197.835
+ms. The corresponding blur, gradient, NMS, and hysteresis times were about
+45.6–45.8 ms, 48.5–54.5 ms, 27.2–28.1 ms, and 75.7–76.0 ms. Hysteresis was
+therefore roughly 37–38% of CPU time, and disagreement with scikit-image was
+about 0.751%. These figures remain approximate historical context.
 
 The result was therefore in the 100+ MPix/s class for Canny-only, but it was not
 a claim about maximum possible CPU performance.
@@ -117,6 +126,37 @@ A roughly 123 MP proxy experiment illustrated the cost of flattened indexing:
 The durable lesson is to avoid unnecessary integer division in inner loops and
 prefer row-oriented decomposition for conventional image shapes. Unusual images
 with very few, extremely long rows may behave differently.
+
+### Operator-class proxy benchmark
+
+An external compact proxy benchmark at approximately the same 23.23 MP shape
+reported recent medians of about 3.985 ms for NumPy copy, 6.931 ms for a Numba
+row-parallel copy, 68.973 ms for SciPy `ndimage.label`, and 13.648 ms for Numba
+NMS-lite. Corresponding GPU medians were about 0.394 ms for a CuPy elementwise
+copy, 0.716 ms for CuPy NMS-lite, and 2.418 ms for CuPyX labeling. The resulting
+ratios were approximately 10.1x, 17.6x, 19.1x, and 28.5x respectively.
+
+The suite samples streaming, regular local-neighborhood, and irregular
+connectivity workload classes; it does not predict full Canny exactly. If CPU
+stage-time fractions are used, a weighted harmonic combination is appropriate:
+
+```text
+S_total ~= 1 / sum(f_i / S_i)
+```
+
+Using an approximately 0.63 regular/local CPU share, 0.37 connectivity share,
+19.1x NMS-lite ratio, and 28.5x label ratio gives a coarse expectation near
+22x. The optimized operator was closer to the 30x class because separability,
+materialization avoidance, heavier specialized NMS, and custom hysteresis are
+not represented by the proxy.
+
+The proxy's existing NMS-lite payload comment undercounts source-level logical
+accesses. Its kernel reads center, left, right, up, down, `gx`, and `gy`, then
+writes one float32 result: seven reads plus one write, or 32 bytes/pixel rather
+than 16. This correction does not change timings or CPU/GPU ratios. Even the
+corrected source-level payload is not literal DRAM traffic because caches,
+coalescing, and reuse affect physical transfers. The proxy source remains an
+external context artifact rather than repository code.
 
 ### Allocation and first touch
 
@@ -156,9 +196,38 @@ an optional single-image or experimental path.
 cc3d is LGPL-licensed. Keep the custom binding/build logic separate, require an
 external source checkout, and do not vendor or automatically clone cc3d.
 
+The binding layer and much of its build/compilation scaffolding were
+substantially ChatGPT-assisted. The maintainer identified the public API's
+GIL/threading limitation, set the API and preallocation goals, benchmarked
+SciPy and public cc3d, validated single-frame and batched behavior, and decided
+the integration and licensing boundaries. The accurate summary is that
+ChatGPT substantially assisted implementation while the maintainer directed,
+tested, benchmarked, validated, and integrated it.
+
+### Why deeper CCL work stops here
+
+YACCLAB and *Parallel Light Speed Labeling: An Efficient Connected Component
+Labeling Algorithm for Multi-Core Processors* reinforce that CCL optimization
+is a substantial field. Memory accesses are first-class costs; run-based
+methods can reduce temporary labels; serious multicore designs may require
+strip partitioning, label-range management, and specialized boundary merging;
+and some application-specific algorithms can accumulate component properties
+without producing a final dense label image.
+
+Canny hysteresis ultimately asks whether each weak-edge component contains a
+strong pixel, so a specialized design might reduce final label
+materialization. Implementing that idea would require major semantic and
+correctness work. Applying a deep run-based or tiled redesign to only the CPU
+would also distort the comparison; a meaningful counterpart could require
+GPU-local labeling, boundary equivalence merging, warp/wavefront-specific
+choices, and a new materialization strategy. That would make the project a
+comparative CCL study with Canny as a wrapper. The literature therefore
+supports the present stopping point rather than creating an implementation
+obligation.
+
 ## CUDA GPU observations
 
-On an RTX 5000 Ada with 32 GB VRAM and a recent CuPy 14.0.1/CUDA runtime
+On an RTX 5000 Ada with 32 GB VRAM and a CuPy 14.0.1/CUDA 13.0-era runtime
 environment, the roughly 23.23 MP alpha GPU prototype showed an unusual
 repeatable Gaussian timing transition: about 170 ms in a cold-ish trial, then
 about 97 ms, then about 325 ms in later trials. Total later device time was
@@ -176,6 +245,26 @@ Representative warm refined results on the same image were:
 - about 2.3–2.7 ms gradients;
 - about 0.70–0.72 ms NMS; and
 - commonly about 2.0–2.5 ms hysteresis.
+
+Recent trials on the named 23.23 MP image placed custom Canny around 6.2–7.3
+ms, with blur around 1.1–1.2 ms, gradients 2.3–2.6 ms, NMS 0.69–0.73 ms, and
+hysteresis 2.0–2.9 ms. Compared with the recent CPU observations, the stage
+ratios were approximately 40x blur, 20–23x gradients, 40x NMS, 30–35x
+hysteresis, and roughly 30x for Canny overall. Run-to-run variation makes these
+classes, not exact constants.
+
+The roughly 40x NMS ratio is not a claim about raw FP32 throughput. Both custom
+backends quickly enter compiled per-pixel code, but real interpolation NMS does
+more coordinate arithmetic, conversion, clamping, gathers, and bilinear work
+than NMS-lite. SIMT lets that scalar-looking work be expressed as independent
+pixel threads while hardware groups them into vector-like warps or wavefronts;
+it is related to, but not programmer-equivalent to, explicit SIMD. The observed
+throughput also depends on execution lanes, registers, bandwidth, caches,
+occupancy, and latency hiding. NVIDIA-style independent thread scheduling is
+not central to this shallowly divergent NMS, though divergence behavior matters
+more for variable root traversal, retry loops, and atomics in CCL.
+The maintainer also observed 100+ GPix/s-class NMS throughput on MI300X; that
+result reflects the full hardware and execution shape, not SIMT alone.
 
 The approximate observed stable-regime improvement was about 45–50x for the
 whole device operator and 55–61x for Canny-only. NMS exceeded 100x and Gaussian
@@ -232,6 +321,13 @@ confound the comparison.
 
 ## Reference implementation context
 
+cuCIM became the primary serious CUDA library baseline because it accepts CuPy
+arrays directly and supplies a scikit-image-style Canny operator. An informal
+Python Community Discord inquiry did not identify a faster directly
+CuPy-compatible alternative. This was community reconnaissance, not a formal
+literature review, expert certification, or proof that cuCIM is globally
+fastest.
+
 In one roughly 122.99 MP fp32 grayscale CUDA comparison, cuCIM took about
 40.1 ms and the custom implementation about 35.0 ms. The roughly 14–15%
 difference is evidence that cuCIM is a strong directly interoperable baseline,
@@ -246,6 +342,16 @@ different goals—PyTorch integration, differentiability, augmentation, and
 batching—so these observations are workload-specific, not a universal quality
 judgment.
 
+That comparison is also a warning against treating hysteresis as a fixed
+MPix/s workload. Weak-edge density, component count and sizes, chain structure,
+root-equivalence behavior, strong-component count, and propagation convergence
+can change at fixed dimensions. Nsight observations of root chasing, atomics,
+equivalence updates, and inefficient cache/L2 behavior point in the same
+direction for the custom GPU CCL. Benchmark multiple content classes and
+investigate content before attributing an unusually fast or slow result solely
+to hardware or an implementation change. Regular stages are generally less
+content-sensitive.
+
 OpenCV frequently outperformed the refined scientific-Python CPU prototype and
 should remain mature production-native context. The project does not need to
 beat it at all costs. OpenCV's OpenCL/UMat path can also be fast, but it does
@@ -255,6 +361,36 @@ When timing scikit-image or cuCIM grayscale conversion, remember that
 `rgb2gray(uint8).astype(float32)` may perform grayscale work in a default
 floating dtype before the final cast. A clearer public-API path is
 `img_as_float32` followed by `rgb2gray`.
+
+Detailed internal stage instrumentation of third-party references is a
+non-goal unless a public API already exposes a clean boundary. Whole-Canny,
+grayscale-plus-Canny, device-only, transfer-inclusive, and selected public
+stage measurements are sufficient. Vendoring reference source, patching
+site-packages, carrying forks, or using private APIs only to obtain matching
+stage breakdowns would add disproportionate maintenance and provenance cost.
+
+## Interpreting the CPU/GPU comparison
+
+The comparison is meaningful but not architecture-pure. Hysteresis is already
+a major wall-time component on both backends, while the CPU CCL direction does
+not exploit multicore parallelism as effectively as the regular stages and the
+custom GPU formulation exposes much more parallel work. Part of the observed
+speedup therefore reflects implementation parallelism rather than intrinsic
+hardware alone.
+
+This is not merely an unfinished obvious optimization. Eliminating the
+asymmetry rigorously leads into the deeper CCL designs discussed above and can
+increase provenance and semantic risk relative to the intended scikit-image
+decomposition: threshold weak and strong pixels, label 8-connected components,
+identify components containing a strong pixel, and retain them. The current
+implementations are sufficiently optimized for a bounded engineering
+comparison when this limitation is explicit; they are neither a perfectly
+fair hardware experiment nor a meaningless comparison.
+
+CPU remains valuable for deployment availability, CPU-resident applications,
+small and medium workloads where launch and transfer costs matter, debugging,
+simpler packaging, and systems without usable CUDA or ROCm. Large-workload GPU
+advantages and remaining CPU optimization headroom are compatible facts.
 
 ## Future directions kept outside current scope
 
