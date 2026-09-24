@@ -38,10 +38,22 @@ The historical alpha implementations use generic array expressions:
 - library CCL plus label selection for hysteresis; and
 - limited buffer reuse.
 
-The refined prototypes use separable filtering, Numba loops on CPU, explicit
-CuPy kernels on GPU, local per-output-pixel NMS, fewer full-image passes, and
+The refined prototypes use separable Numba filtering on CPU, CuPyX-generated
+Gaussian and Sobel filters on GPU, explicit custom GPU kernels where appropriate
+for NMS and CCL, local per-output-pixel NMS, fewer full-image passes, and
 reusable workspaces. Their important difference is dataflow and materialization,
-not simply “vectorized Python versus a lower-level language.”
+not simply “vectorized Python versus a lower-level language.” Neither refined
+prototype materializes an explicit full-frame padded image for blur or
+gradients.
+
+That state was reached incrementally. A May 2026 suspect-operator proxy was
+prompted around padding, vertical convolution, and a serial BBDT-like scan, but
+the evolving CPU operator also had substantial intermediate-allocation churn,
+a slow NumPy `hypot` path, and extra padding passes. Reusable preallocation, a
+custom parallel compiled magnitude operation, and direct boundary handling
+later removed those costs. The proxy code was fully ChatGPT-generated from the
+maintainer's operator-suspect prompt, so its results are exploratory workload
+samples rather than a complete diagnosis of the later refined CPU operator.
 
 The alpha Gaussian kernel width is `K = 2 * ceil(4 * sigma) + 1`. Its logical
 float32 window footprint is approximately `H * W * K^2 * 4` bytes. At
@@ -123,6 +135,11 @@ A roughly 123 MP proxy experiment illustrated the cost of flattened indexing:
 - parallel flattened `prange`: about 82 ms; and
 - row-oriented parallel `prange(height)`: about 39 ms.
 
+This investigation was mostly ChatGPT-generated over several turns. Multiple
+candidate scripts were produced, and the final figures came from at least two
+scripts; the exact number and turn-by-turn provenance were not retained and
+should remain unknown rather than reconstructed speculatively.
+
 The durable lesson is to avoid unnecessary integer division in inner loops and
 prefer row-oriented decomposition for conventional image shapes. Unusual images
 with very few, extremely long rows may behave differently.
@@ -136,6 +153,12 @@ NMS-lite. Corresponding GPU medians were about 0.394 ms for a CuPy elementwise
 copy, 0.716 ms for CuPy NMS-lite, and 2.418 ms for CuPyX labeling. The resulting
 ratios were approximately 10.1x, 17.6x, 19.1x, and 28.5x respectively.
 
+This proxy was mostly ChatGPT-generated over several turns, with intermediate
+candidate scripts. All final measurements above came from one identified
+external script, `copy_label_and_nms_proxy_bench.py`. That source remains
+outside this repository pending a separate decision about whether this reusable
+operator-class proxy merits inclusion.
+
 The suite samples streaming, regular local-neighborhood, and irregular
 connectivity workload classes; it does not predict full Canny exactly. If CPU
 stage-time fractions are used, a weighted harmonic combination is appropriate:
@@ -146,9 +169,9 @@ S_total ~= 1 / sum(f_i / S_i)
 
 Using an approximately 0.63 regular/local CPU share, 0.37 connectivity share,
 19.1x NMS-lite ratio, and 28.5x label ratio gives a coarse expectation near
-22x. The optimized operator was closer to the 30x class because separability,
-materialization avoidance, heavier specialized NMS, and custom hysteresis are
-not represented by the proxy.
+22x. The optimized operator was closer to the 30x class because the proxy does
+not model the actual blur/gradient filtering costs, materialization avoidance,
+the heavier specialized NMS path, or the complete custom hysteresis stage.
 
 The proxy's existing NMS-lite payload comment undercounts source-level logical
 accesses. Its kernel reads center, left, right, up, down, `gx`, and `gy`, then
@@ -157,6 +180,12 @@ than 16. This correction does not change timings or CPU/GPU ratios. Even the
 corrected source-level payload is not literal DRAM traffic because caches,
 coalescing, and reuse affect physical transfers. The proxy source remains an
 external context artifact rather than repository code.
+
+The later reduction and Gaussian-footprint experiments in
+`filtering-and-reduction-experiments.md` explain why this coarse estimate was
+reasonable but conservative. In particular, the proxy represented all regular
+and local work with a roughly 19.1x NMS-lite ratio, whereas an isolated 13-tap
+Gaussian showed a roughly 50x CPU/GPU ratio in one large RTX 5000 Ada test.
 
 ### Allocation and first touch
 
@@ -167,6 +196,10 @@ configured to retain backed pages, the nominally fresh case approached reused
 buffer behavior. The interpretation was page reuse, not magically increased
 page-mapping bandwidth. Once the operator became heavily preallocated, page
 faults no longer explained most warm steady-state time.
+
+Gemini mostly authored this experiment, with possible later ChatGPT corrections.
+The detailed provenance is scattered and is not worth reconstructing; do not
+claim a more exact authorship history unless new primary evidence appears.
 
 ## CCL and cc3d observations
 
@@ -203,6 +236,10 @@ SciPy and public cc3d, validated single-frame and batched behavior, and decided
 the integration and licensing boundaries. The accurate summary is that
 ChatGPT substantially assisted implementation while the maintainer directed,
 tested, benchmarked, validated, and integrated it.
+
+The batch-32 SciPy/cc3d benchmark harness was also largely ChatGPT-generated
+and iterated over multiple LLM turns. Preserve that distinction from the
+maintainer's experimental design, execution, validation, and interpretation.
 
 ### Why deeper CCL work stops here
 
@@ -293,6 +330,11 @@ the separate ROCm bootstrap project. Its choice of traits and its preference
 for a minimal shim do not set the implementation policy for this Canny
 repository.
 
+Codex generated this compatibility experiment in one pass for the separate
+ROCm bootstrap project, with the intent to test a small independently written
+primitive rather than imitate known third-party code. That intent is not a
+substitute for source review or a claim of provable originality.
+
 ### Refined CCL vendoring decision
 
 The planned refined CCL kernels derive from CuPy 14.1.x-era upstream source.
@@ -356,6 +398,10 @@ OpenCV frequently outperformed the refined scientific-Python CPU prototype and
 should remain mature production-native context. The project does not need to
 beat it at all costs. OpenCV's OpenCL/UMat path can also be fast, but it does
 not directly answer the CUDA/ROCm/CuPy question.
+
+The Kornia and OpenCV measurement harnesses were largely Gemini-generated,
+possibly with some ChatGPT involvement. Their detailed provenance is scattered;
+do not claim a more exact division of authorship without new primary evidence.
 
 When timing scikit-image or cuCIM grayscale conversion, remember that
 `rgb2gray(uint8).astype(float32)` may perform grayscale work in a default

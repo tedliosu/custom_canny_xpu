@@ -39,7 +39,10 @@ The main engineering lesson so far is that controlling dataflow often matters
 more than merely choosing a lower-level language. Separable filtering, local
 per-pixel non-maximum suppression, fewer full-image passes, fewer temporary
 arrays, and reusable workspaces account for much of the improvement in the
-newer prototypes.
+newer prototypes. Recent filtering experiments also show that regular stencil
+work cannot be reduced to a raw memory-bandwidth comparison: overlapping
+windows, footprint size, execution resources, cache behavior, instruction
+throughput, and latency hiding can change CPU/GPU ratios substantially.
 
 ## Operator model
 
@@ -83,6 +86,8 @@ irregular connectivity remains hard.
   without treating them as current benchmark guarantees.
 - `docs/alpha-memory-scaling.md` records the inspected alpha prototypes'
   parameter-dependent memory risks and separates observations from estimates.
+- `docs/filtering-and-reduction-experiments.md` records the informal NumPy
+  reduction and CPU/GPU Gaussian-footprint experiments and their limits.
 
 The current modules are implementation scaffolding, not a stable public API.
 Function names, package layout, supported versions, and installation commands
@@ -97,11 +102,22 @@ Numba for explicit native-speed loops, SciPy for the default CCL path, and
 reusable NumPy workspaces. An optional experimental Cython binding to the
 external `connected-components-3d` project may be retained for selected
 single-image or frame-level experiments, but SciPy is the intended default.
+The reviewed prototype performs Gaussian and Sobel work with generic separable
+Numba convolution passes, explicit nearest-boundary indexing, and preallocated
+buffers; it does not materialize full-frame padded inputs. Its gradient stage
+comprises separable Sobel X and Y, a compiled magnitude pass, and a NumPy
+maximum reduction.
 
 The refined GPU direction uses CuPy/CuPyX, runtime-compiled CUDA/HIP-compatible
 kernels, custom NMS and CCL operations, and reusable device workspaces. CuPy
 and GPU reference libraries must remain optional: importing or running the CPU
 path must not assume that CuPy, cuCIM, or hipCIM is installed.
+The reviewed prototype uses `cupyx.scipy.ndimage.gaussian_filter` and `sobel`
+for filtering, then CuPy clip, magnitude, and maximum operations. Those filters
+are not hand-written repository kernels. Inspection of the relevant tagged
+CuPy source showed generated elementwise-filter machinery with explicit
+footprint indexing; performance alone is not evidence of bespoke shared-memory
+tiling or another hidden stencil algorithm.
 
 The planned refined CCL implementation derives from CuPy 14.1.x-era upstream
 source. For this repository, the selected approach is to vendor the required
@@ -172,6 +188,13 @@ Record, as applicable:
 - stage-only, Canny-only, grayscale-plus-Canny, and full application bounds;
 - synthetic/random versus natural-image inputs; and
 - semantic/reference versus specialized/performance-oriented implementations.
+
+For reductions and stencils, label calculated GB/s as input-payload or logical
+effective throughput rather than literal physical DRAM traffic. Record filter
+radius or tap count: image size alone does not characterize stencil work. Raw
+CPU-RAM versus GPU-VRAM bandwidth is not an expected ceiling on speedup when
+overlapping windows create cache reuse and increase regular arithmetic,
+addressing, or instruction work per externally fetched byte.
 
 Hysteresis must be exercised on multiple content classes. Its connectivity
 graph, component distribution, root-chain behavior, and convergence can change
@@ -254,6 +277,13 @@ per-worker reusable CPU workspaces without nested oversubscription, and
 explicit `[B, H, W]` GPU kernels/workspaces rather than host-thread submission
 as the default scaling model.
 
+Narrow diagnostic microbenchmarks are normally disposable investigation tools,
+not repository deliverables. Preserve durable results and caveats in the
+documentation while keeping their scripts external so this repository does
+not become an informal workspace. The compact copy/label/NMS-lite
+operator-class proxy is the sole current candidate for later inclusion as a
+reusable benchmark, subject to its own reviewed decision.
+
 ## Roadmap
 
 This is the canonical high-level backlog. Keep separate future work visible
@@ -281,7 +311,9 @@ when completing a parent item.
 8. Organize workspaces behind explicit objects after the operator contract is
    understood; do not perform a broad refactor solely for tidiness.
 9. Regenerate reproducible benchmark evidence before publishing exact
-   performance or speedup claims.
+   performance or speedup claims. Decide whether the compact
+   copy/label/NMS-lite operator-class proxy merits inclusion as a reusable
+   harness; keep the other narrow diagnostic scripts external.
 
 ## Provenance and LLM assistance
 
@@ -299,6 +331,14 @@ the result, evaluated alternatives, and set its integration and licensing
 boundaries. Avoid implying that these algorithms were invented here, and
 prefer small, explicit compatibility code over recreating third-party
 infrastructure.
+
+The external diagnostic benchmarks have mixed LLM provenance. The May 2026 CPU
+suspect-operator microbenchmark was fully generated by ChatGPT from the
+maintainer's prompt. The maximum-reduction and Gaussian-footprint benchmarks
+were each generated by ChatGPT in one pass. Other experiment-specific details,
+including irrecoverable uncertainty, are recorded in the engineering notes.
+These probes informed maintainer-directed investigation; they do not establish
+the bottlenecks of the later refined operator by themselves.
 
 All code and documentation in this repository have been drafted with help from
 ChatGPT-family models available circa 2025–2026. Architecture, support

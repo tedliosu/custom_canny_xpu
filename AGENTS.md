@@ -157,6 +157,21 @@ implementation before assuming shared-memory/LDS tiling will win. For CCL,
 recognize that parent traversal can escape a tile; shared-memory CCL normally
 requires an algorithmic redesign rather than a local substitution.
 
+The reviewed refined prototypes do not materialize full-frame padding for blur
+or gradients. The CPU prototype uses separable Numba loops with explicit
+nearest-boundary handling and reusable buffers. The GPU prototype uses CuPyX
+Gaussian and Sobel filters, followed by ordinary CuPy clip, magnitude, and
+reduction operations. Do not attribute their timings to explicit `pad` passes
+or describe those CuPyX filters as custom repository kernels.
+
+CuPyX filtering can perform well through generated elementwise kernels with
+explicit footprint indexing; do not infer shared-memory tiling, warp-specialized
+stencils, or another exotic algorithm from timing alone. When source internals
+support a durable claim, cite the relevant tagged CuPy version rather than the
+moving `main` branch. Distinguish source inspection from profiler evidence and
+do not assert the exact cache, instruction, occupancy, or memory bottleneck
+without appropriate measurements.
+
 The refined CPU/GPU prototype comparison is meaningful but not
 architecture-pure: its CPU CCL exposes less multicore parallelism than its
 custom GPU CCL.
@@ -293,6 +308,20 @@ block boundary; apply the same block structure to CPU measurements when
 practical. Do not report coarse logical bytes-per-pass estimates as literal
 DRAM bandwidth.
 
+Treat reduction and stencil microbenchmarks as operation-class evidence, not
+whole-operator predictors. A logical-tap or input-payload throughput can exceed
+or differ from physical memory traffic because of cache reuse and reduction
+behavior. Raw CPU-RAM versus GPU-VRAM bandwidth is not an upper bound on a
+stage speedup. Report filter footprint as well as image size, and compare GPU
+platforms without assigning a difference to microarchitecture alone when
+generation, resource count, cache, memory, power, clocks, or software differ.
+
+The inspected NumPy `ndarray.max()` results are consistent with an efficient
+streaming reduction, not an obvious pathological primitive. A full-frame
+reduction still has a measurable pass cost; if reductions matter, first test a
+hypothesis about eliminating or fusing passes rather than assuming `max()`
+itself needs replacement.
+
 Do not claim:
 
 - exact semantic equivalence without configuration-specific evidence;
@@ -336,6 +365,14 @@ optional build and preserve its LGPL boundary and notices.
 Generated Cython C/C++, object files, extension modules, benchmark images, and
 other local artifacts are not source-of-truth inputs unless deliberately added
 under a reviewed repository policy.
+
+Keep narrow, throwaway diagnostic microbenchmarks outside the repository by
+default. Preserve their durable findings, boundaries, and provenance in
+documentation without turning this checkout into an informal experiment
+workspace. The compact copy/label/NMS-lite operator-class proxy is the only
+current candidate exception because it may serve as a reusable benchmark; add
+it only through a separate reviewed decision. Do not import other external
+proxy scripts merely because their results are documented here.
 
 ## Provenance and LLM assistance
 
