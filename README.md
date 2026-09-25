@@ -46,14 +46,20 @@ throughput, and latency hiding can change CPU/GPU ratios substantially.
 
 ## Operator model
 
-The intended operator has these high-level stages:
+The Canny operator accepts a two-dimensional float32 grayscale array and has
+these high-level stages:
 
-1. optional RGB-to-grayscale conversion;
-2. Gaussian filtering;
-3. Sobel gradient extraction;
-4. interpolation-based non-maximum suppression;
-5. double hysteresis through connected-component labeling;
-6. reusable workspace management around those stages.
+1. Gaussian filtering;
+2. Sobel gradient extraction;
+3. interpolation-based non-maximum suppression;
+4. double hysteresis through connected-component labeling; and
+5. reusable workspace management around those stages.
+
+RGB-to-grayscale conversion is a separate composable operator, not an implicit
+Canny stage. The complete initial API behavior, including shapes, dtypes,
+absolute-threshold semantics, backend residency, outputs, errors, and
+workspace ownership, is defined in
+[`docs/operator-contract.md`](docs/operator-contract.md).
 
 Hysteresis follows the scikit-image-style decomposition: label the
 low-threshold mask, identify components containing at least one high-threshold
@@ -76,7 +82,9 @@ irregular connectivity remains hard.
 - `_backends_bridge.py` registers the always-available NumPy/SciPy backend and,
   when importable, the optional CuPy/CuPyX backend.
 - `_canny_double_hysteresis.py` implements the current shared, vectorized CCL
-  decomposition of double hysteresis.
+  decomposition of double hysteresis. It still returns `uint8` values 0/255 and
+  must be adapted during refined integration to meet the Boolean public-output
+  contract.
 - `LICENSE` applies the Apache License 2.0 to this repository.
 - `THIRD_PARTY_NOTICES.md` records attribution and license terms for adapted
   or vendored third-party material.
@@ -88,6 +96,8 @@ irregular connectivity remains hard.
   parameter-dependent memory risks and separates observations from estimates.
 - `docs/filtering-and-reduction-experiments.md` records the informal NumPy
   reduction and CPU/GPU Gaussian-footprint experiments and their limits.
+- `docs/operator-contract.md` defines the reviewed initial public behavior that
+  the refined implementation must satisfy.
 
 The current modules are implementation scaffolding, not a stable public API.
 Function names, package layout, supported versions, and installation commands
@@ -101,23 +111,30 @@ The refined CPU direction uses NumPy for array storage and ordinary operations,
 Numba for explicit native-speed loops, SciPy for the default CCL path, and
 reusable NumPy workspaces. An optional experimental Cython binding to the
 external `connected-components-3d` project may be retained for selected
-single-image or frame-level experiments, but SciPy is the intended default.
+single-image or frame-level experiments, but SciPy is the intended public
+default. When available, the explicitly selected nogil/preallocated cc3d path
+is preferred for the primary optimized custom CPU-versus-GPU benchmark; report
+the SciPy path separately as supplementary context. This does not make the
+comparison architecture-pure or establish that cc3d is universally faster.
 The reviewed prototype performs Gaussian and Sobel work with generic separable
 Numba convolution passes, explicit nearest-boundary indexing, and preallocated
-buffers; it does not materialize full-frame padded inputs. Its gradient stage
-comprises separable Sobel X and Y, a compiled magnitude pass, and a NumPy
-maximum reduction.
+buffers; it does not materialize full-frame padded inputs. That external draft
+still normalizes gradient magnitudes with a NumPy maximum reduction.
+Integration must remove that per-image normalization so thresholds follow the
+reviewed absolute-magnitude contract.
 
 The refined GPU direction uses CuPy/CuPyX, runtime-compiled CUDA/HIP-compatible
 kernels, custom NMS and CCL operations, and reusable device workspaces. CuPy
 and GPU reference libraries must remain optional: importing or running the CPU
 path must not assume that CuPy, cuCIM, or hipCIM is installed.
 The reviewed prototype uses `cupyx.scipy.ndimage.gaussian_filter` and `sobel`
-for filtering, then CuPy clip, magnitude, and maximum operations. Those filters
-are not hand-written repository kernels. Inspection of the relevant tagged
-CuPy source showed generated elementwise-filter machinery with explicit
-footprint indexing; performance alone is not evidence of bespoke shared-memory
-tiling or another hidden stencil algorithm.
+for filtering, then ordinary CuPy operations and custom NMS. Its external draft
+still includes per-image maximum normalization that must be removed during
+integration. The CuPyX filters are not hand-written repository kernels.
+Inspection of the relevant tagged CuPy source showed generated
+elementwise-filter machinery with explicit footprint indexing; performance
+alone is not evidence of bespoke shared-memory tiling or another hidden
+stencil algorithm.
 
 The planned refined CCL implementation derives from CuPy 14.1.x-era upstream
 source. For this repository, the selected approach is to vendor the required
@@ -152,9 +169,10 @@ still open design decisions.
 
 The operator is specialized and is not currently promised to be an exact
 semantic clone of scikit-image or OpenCV. scikit-image is the primary semantic
-reference because the intended high-level structure includes configurable
-border handling, 3x3 Sobel gradients, interpolation-based NMS, and CCL-based
-hysteresis.
+reference because the intended high-level structure includes 3x3 Sobel
+gradients, interpolation-based NMS, absolute thresholds, and CCL-based
+hysteresis. The initial custom contract is narrower: float32 grayscale input
+only and fixed nearest-boundary semantics.
 
 Correctness work should include:
 
@@ -164,6 +182,12 @@ Correctness work should include:
 - explicit dtype, threshold, border-mode, shape, and residency information;
 - regression tests before and after meaningful performance rewrites; and
 - no post-processing introduced merely to improve a disagreement metric.
+
+GPU disagreement counting should keep both Boolean results device-resident,
+perform the count on device, and transfer only the scalar result. This
+reference-only transform-reduction is the selected future CUB/rocPRIM
+primitive opportunity; its time must not be included in Canny-only
+measurements.
 
 A few differing pixels between closely matched CPU/GPU implementations may be
 reasonable near floating-point, interpolation, or threshold boundaries. A
@@ -289,28 +313,27 @@ reusable benchmark, subject to its own reviewed decision.
 This is the canonical high-level backlog. Keep separate future work visible
 when completing a parent item.
 
-1. Define the public operator contract: accepted shapes/dtypes, threshold
-   semantics, border modes, outputs, exceptions, workspace ownership, and CPU
-   fallback behavior.
-2. Choose the package/module layout and integrate reviewed refined CPU code
-   without treating the external prototype as finalized source.
-3. Integrate the optional GPU implementation with graceful CPU-only import and
+1. Choose the package/module layout and integrate reviewed refined CPU code
+   against the documented operator contract, without treating the external
+   prototype as finalized source.
+2. Integrate the optional GPU implementation with graceful CPU-only import and
    clear forced-GPU failure behavior. Record the exact upstream CuPy revision
    for derived CCL code and add its attribution and license terms to
    `THIRD_PARTY_NOTICES.md` in the same reviewed change.
-4. Decide where alpha artifacts live and add them without erasing their
+3. Decide where alpha artifacts live and add them without erasing their
    historical architecture or allowing unsafe default image sizes.
-5. Add a CLI so image paths, Canny parameters, backend selection, references,
+4. Add a CLI so image paths, Canny parameters, backend selection, references,
    stage reporting, and timing blocks do not require source edits. Keep
    reference comparison and stage reporting orthogonal.
-6. Add a `pytest` suite for stage behavior, CPU/GPU agreement, reference
+5. Add a `pytest` suite for stage behavior, CPU/GPU agreement, reference
    disagreement, optional-dependency behavior, and representative error paths.
-7. Establish dependency metadata, supported-version policy, and
+6. Establish dependency metadata, supported-version policy, and
    lint/type-check configuration for refined code. Decide separately how much
    checking applies to frozen alpha artifacts.
-8. Organize workspaces behind explicit objects after the operator contract is
-   understood; do not perform a broad refactor solely for tidiness.
-9. Regenerate reproducible benchmark evidence before publishing exact
+7. Organize workspaces behind explicit objects without changing the ownership
+   and result-lifetime rules in the public operator contract; do not perform a
+   broad refactor solely for tidiness.
+8. Regenerate reproducible benchmark evidence before publishing exact
    performance or speedup claims. Decide whether the compact
    copy/label/NMS-lite operator-class proxy merits inclusion as a reusable
    harness; keep the other narrow diagnostic scripts external.

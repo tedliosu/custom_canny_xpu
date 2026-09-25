@@ -126,11 +126,19 @@ Use “operator” for the Canny computation. Avoid calling it a pipeline except
 when discussing a larger application or an execution sequence for which that
 term is materially useful.
 
-The intended high-level operator consists of RGB-to-grayscale conversion,
-Gaussian filtering, Sobel gradients, interpolation-based NMS, CCL-based double
-hysteresis, and reusable workspace management. scikit-image is the primary
-semantic reference, but the custom operator is not assumed to match every
-scikit-image or OpenCV behavior exactly.
+The Canny operator accepts only a two-dimensional, finite, `[0, 1]` float32
+grayscale array. It consists of Gaussian filtering, Sobel gradients,
+interpolation-based NMS, CCL-based double hysteresis, and reusable workspace
+management. RGB-to-grayscale conversion is a separate composable operator.
+scikit-image is the primary semantic reference, but the custom operator is not
+assumed to match every scikit-image or OpenCV behavior exactly. Treat
+`docs/operator-contract.md` as the durable detailed API contract.
+
+The initial Canny contract uses fixed nearest-boundary behavior and absolute
+thresholds on NMS-suppressed Sobel magnitude. Do not normalize magnitudes by
+the maximum magnitude of each image. Quantile thresholds, masks, other border
+modes, wider dtypes, integer Canny input, and implicit RGB handling are deferred
+contract decisions.
 
 Prefer backend-appropriate implementations of a shared high-level contract.
 Fair CPU/GPU comparison does not require identical low-level algorithms or
@@ -139,7 +147,10 @@ source structure.
 The refined CPU direction may use NumPy, Numba, SciPy, and reusable workspaces.
 SciPy CCL is the default direction. A custom nogil Cython/cc3d binding remains
 optional and experimental; releasing the GIL does not establish that cc3d is
-universally faster than SciPy.
+universally faster than SciPy. Select cc3d explicitly rather than through an
+availability global that silently changes execution. When available, prefer
+the nogil/preallocated cc3d path for the primary optimized custom CPU-versus-GPU
+benchmark, with the SciPy result labeled as supplementary or appendix context.
 
 The refined GPU direction may use CuPy/CuPyX, `ElementwiseKernel`,
 runtime-compiled CUDA/HIP-compatible code, custom CCL operations, and reusable
@@ -160,9 +171,12 @@ requires an algorithmic redesign rather than a local substitution.
 The reviewed refined prototypes do not materialize full-frame padding for blur
 or gradients. The CPU prototype uses separable Numba loops with explicit
 nearest-boundary handling and reusable buffers. The GPU prototype uses CuPyX
-Gaussian and Sobel filters, followed by ordinary CuPy clip, magnitude, and
-reduction operations. Do not attribute their timings to explicit `pad` passes
-or describe those CuPyX filters as custom repository kernels.
+Gaussian and Sobel filters, followed by ordinary CuPy clip and magnitude
+operations. Both external drafts still contain a per-image maximum reduction
+used for magnitude normalization; remove that normalization during integration
+to satisfy the absolute-threshold contract. Do not attribute historical
+timings to explicit `pad` passes or describe those CuPyX filters as custom
+repository kernels.
 
 CuPyX filtering can perform well through generated elementwise kernels with
 explicit footprint indexing; do not infer shared-memory tiling, warp-specialized
@@ -237,9 +251,34 @@ not decide them implicitly while doing unrelated work.
   perform broad style churn without a concrete benefit.
 - Group related workspace arrays behind an explicit object only after their
   ownership and lifetime contract is clear.
+- Keep output buffers separate from temporary workspaces. Returned output must
+  remain valid across workspace reuse; a caller-supplied output remains
+  caller-owned.
+- Treat workspace buffers as private implementation state. Normal first use and
+  reuse must initialize every scratch value that a call reads, so call `n + 1`
+  does not depend on call `n`. Caller replacement, resizing, retyping, or
+  arbitrary mutation of internal buffers is unsupported and has undefined
+  operator-level behavior. Do not add full-buffer integrity scans, defensive
+  clearing, checksums, or reconstruction solely to guard against such
+  tampering; inexpensive backend/shape/capacity/dtype compatibility checks are
+  still appropriate.
 - The refined implementation should eventually pass the selected type and lint
   checks. Suppress a diagnostic only when the code is correct and the reason is
   documented or obvious from local context.
+
+Prefer explicit organization around ownership, lifetime, and dispatch
+boundaries. Use objects for stateful resources such as reusable workspaces and
+narrow strategy interfaces for genuinely interchangeable implementations.
+Prefer ordinary functions for stateless numerical operations. Do not introduce
+inheritance, indirection, or generalized backend abstractions solely for
+hypothetical future frameworks. Resolve CPU/GPU dispatch once near the public
+boundary rather than repeat backend conditionals throughout every stage.
+
+Public backend choices are `auto`, `cpu`, and `gpu`. Automatic selection
+follows array residency and never transfers an array: NumPy selects CPU and
+CuPy selects GPU. Explicit backend/residency mismatches and unavailable forced
+backends fail clearly. Library code uses exceptions; only a process-level CLI
+uses return codes.
 
 The CLI should eventually expose image path, ordinary Canny parameters,
 backend choice, reference comparison, stage reporting, and benchmark block
@@ -266,7 +305,18 @@ After meaningful numerical or performance changes, verify:
 - disagreement against the selected scikit-image reference;
 - shapes, dtypes, thresholds, border modes, and zero/empty cases;
 - optional-dependency absence and explicit forced-backend failures; and
-- workspace reuse without stale-data contamination.
+- workspace first use and ordinary reuse without stale-data contamination.
+
+Test flat inputs through the ordinary operator path. They must produce an
+all-false Boolean result without division warnings, NaNs, or infinities; do not
+add a separate image-level flat-input fast path merely to satisfy the test.
+
+For GPU reference comparisons, keep the custom and reference Boolean outputs
+device-resident, count differing pixels on device, and transfer only the final
+scalar after synchronization. Treat this reference-only transform-reduction as
+the selected future CUB/rocPRIM primitive opportunity. Keep its time outside
+Canny-only measurements, and do not retain per-image magnitude normalization
+merely to preserve a reduction inside the operator.
 
 Exercise hysteresis on multiple content classes, not resolution alone. Record
 foreground density and component/connectivity characteristics when practical;

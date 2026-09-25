@@ -7,6 +7,11 @@ operators were external prototypes and are not implementation evidence for
 this checkout. Regenerate publishable results from identified committed code
 under the README's benchmarking contract.
 
+The reviewed public contract now removes the prototypes' per-image magnitude
+normalization in favor of absolute thresholds. References below to maximum
+reduction and the historical gradient-stage timing describe those external
+drafts and their recorded experiments, not the intended integrated operator.
+
 Calculated GB/s below is input-payload or logical effective throughput, not a
 measurement of literal physical DRAM transactions. Timings establish observed
 behavior in the recorded configurations; they do not by themselves prove a
