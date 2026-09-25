@@ -355,6 +355,10 @@ vendored third-party material is documented in
 license terms. Optional dependencies and reference implementations retain
 their own licenses.
 
+Reports of suspected undocumented similarity to third-party material or other
+licensing concerns are welcome. Any affected code or documentation can then be
+reviewed and, when appropriate, corrected, attributed, or replaced.
+
 This is primarily a solo learning project, so there is currently no
 `CONTRIBUTING.md`. There is also no separate `SECURITY.md`: the repository is
 experimental image-processing code, does not operate a service, and has no
