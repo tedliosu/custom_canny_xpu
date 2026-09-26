@@ -99,9 +99,29 @@ irregular connectivity remains hard.
 - `docs/operator-contract.md` defines the reviewed initial public behavior that
   the refined implementation must satisfy.
 
-The current modules are implementation scaffolding, not a stable public API.
-Function names, package layout, supported versions, and installation commands
-remain to be defined.
+The current root-level modules are implementation scaffolding, not the stable
+public API. The refined implementation will use a conventional
+`src/custom_canny_xpu/` package, with `canny` and `rgb_to_grayscale` exported
+from the package. A root-level `main.py` will call those operators and remain
+the application/CLI boundary rather than contain their implementations.
+Supported versions, dependency metadata, and installation commands remain to
+be defined.
+
+The initial CPU package should keep ordinary CPU stages, their immediately
+associated compiled kernels, and the CPU workspace together in a cohesive
+backend module. The scikit-image-derived hysteresis decomposition and the
+repository-specific CPU CCL machinery should remain in separate modules so
+their provenance is clear without splitting every numerical stage into its own
+file. Backend resolution belongs once near the public API boundary; numerical
+stages should not repeatedly dispatch between array implementations.
+
+The initial target modules are deliberately narrow: `__init__.py` re-exports
+the public operators, `_api.py` owns public validation and one-time dispatch,
+`_cpu.py` owns the CPU workspace and ordinary CPU stages with their immediate
+kernels, `_hysteresis.py` owns the attributed high-level decomposition, and
+`_cpu_ccl.py` owns repository-specific CCL strategies and label-retention
+helpers. The optional compiled cc3d binding and its build tool should be added
+only in their separately reviewed integration change.
 
 ## Intended implementation families
 
@@ -313,9 +333,14 @@ reusable benchmark, subject to its own reviewed decision.
 This is the canonical high-level backlog. Keep separate future work visible
 when completing a parent item.
 
-1. Choose the package/module layout and integrate reviewed refined CPU code
-   against the documented operator contract, without treating the external
-   prototype as finalized source.
+1. Create the `src/custom_canny_xpu/` package and root `main.py`, then integrate
+   the reviewed refined CPU code against the documented operator contract
+   without treating the external prototype as finalized source. First add the
+   public validation/backend boundary, one explicit CPU workspace object, and
+   the SciPy-default CPU implementation. Keep the adapted hysteresis
+   decomposition separate from repository-specific CCL helpers. Then review
+   and integrate the optional cc3d binding as a separate change behind explicit
+   selection and a lazy optional-import boundary.
 2. Integrate the optional GPU implementation with graceful CPU-only import and
    clear forced-GPU failure behavior. Record the exact upstream CuPy revision
    for derived CCL code and add its attribution and license terms to
@@ -330,10 +355,7 @@ when completing a parent item.
 6. Establish dependency metadata, supported-version policy, and
    lint/type-check configuration for refined code. Decide separately how much
    checking applies to frozen alpha artifacts.
-7. Organize workspaces behind explicit objects without changing the ownership
-   and result-lifetime rules in the public operator contract; do not perform a
-   broad refactor solely for tidiness.
-8. Regenerate reproducible benchmark evidence before publishing exact
+7. Regenerate reproducible benchmark evidence before publishing exact
    performance or speedup claims. Decide whether the compact
    copy/label/NMS-lite operator-class proxy merits inclusion as a reusable
    harness; keep the other narrow diagnostic scripts external.

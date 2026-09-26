@@ -2,8 +2,11 @@
 
 This document defines the intended initial public behavior of the refined
 operators. It is an integration target, not a claim that the current
-scaffolding already implements every rule below. Package layout and final
-public names remain roadmap decisions.
+scaffolding already implements every rule below. The intended public operator
+names are `canny` and `rgb_to_grayscale`, exported by a
+`src/custom_canny_xpu/` package. A root-level `main.py` is an application/CLI
+boundary that calls those operators rather than containing their
+implementations.
 
 ## Canny operator
 
@@ -32,8 +35,9 @@ in performance boundaries.
 ### Parameters and numerical semantics
 
 The initial public parameters are `sigma`, `low_threshold`, and
-`high_threshold`, plus backend, workspace, and output-buffer selection as
-described below.
+`high_threshold`, plus backend, CPU CCL, workspace, and output-buffer selection
+as described below. CPU CCL selection uses `ccl=None`, `"scipy"`, or `"cc3d"`;
+`None` means the backend default and initially resolves to SciPy on CPU.
 
 - `sigma` is a finite scalar greater than or equal to zero. Zero skips
   Gaussian smoothing. Gaussian truncation is fixed at `4.0` rather than
@@ -86,6 +90,9 @@ The public backend choices are `"auto"`, `"cpu"`, and `"gpu"`.
   NumPy input, fails instead of copying the array.
 - An explicit unavailable GPU request fails clearly and never silently retries
   on CPU.
+- The CPU-only CCL names `"scipy"` and `"cc3d"` are invalid for GPU execution;
+  the initial custom GPU CCL remains the GPU default rather than another public
+  selection.
 - The CPU path must import and run without CuPy, cuCIM, hipCIM, or the optional
   cc3d binding installed.
 
@@ -95,8 +102,42 @@ boundary.
 
 ### Workspaces
 
-A caller may eventually supply a reusable workspace. The durable ownership
-rules are:
+The initial CPU integration groups its reusable scratch arrays behind a
+`CpuWorkspace` dataclass created by `create_cpu_workspace`. The factory owns
+the details of allocating compatible intermediate buffers and associating the
+workspace with its selected CPU CCL implementation. The exact buffer fields
+remain private implementation details and may preserve deliberate storage
+reuse where stage lifetimes do not overlap.
+
+The `workspace` argument is optional. After validating the public arguments
+and resolving the backend, `canny` constructs an appropriate temporary
+workspace when `workspace is None`; CPU construction uses
+`create_cpu_workspace`. This keeps one buffer-management path rather than a
+second non-workspace execution path. A temporary workspace lives only for that
+call and is neither returned nor attached to the result.
+
+The `ccl` and `workspace` arguments are mutually exclusive when a CCL name is
+explicitly supplied:
+
+- `workspace=None, ccl=None` constructs a workspace using the backend default;
+- `workspace=None, ccl="scipy"` or `ccl="cc3d"` constructs a CPU workspace for
+  that explicitly requested implementation;
+- a supplied workspace with `ccl=None` uses the implementation already
+  associated with that workspace; and
+- supplying both a workspace and a non-`None` CCL name raises `ValueError`.
+
+This rule requires `None`, rather than `"scipy"`, as the default value of the
+public `ccl` argument. An unavailable explicitly selected cc3d binding raises
+`RuntimeError`; installing or importing it never silently changes the default.
+The public Canny parameter does not map names directly to Python modules. The
+implementation should resolve a name through a narrow strategy interface that
+accounts for the label dtype and label-index space needed by its workspace.
+
+Calls that omit a workspace include temporary allocation costs. Calls supplied
+with a compatible reusable workspace form the preallocated/steady-state timing
+boundary. Benchmarks must preserve that distinction.
+
+The durable workspace ownership rules are:
 
 - the caller owns the workspace and the operator borrows it;
 - the operator may overwrite all temporary contents;
@@ -118,20 +159,31 @@ tampering. Those passes would undermine the performance purpose of workspace
 reuse. This does not relax the normal first-use and cross-call initialization
 requirements above.
 
-These rules deliberately do not freeze a public workspace class or its buffer
-layout. Initial correctness integration may retain the prototypes' individual
-temporary buffers. A later roadmap item will group them behind explicit,
-opaque CPU and GPU workspace objects without changing output ownership.
+The initial `CpuWorkspace` establishes the ownership boundary without freezing
+each buffer field as permanent public API. A later GPU integration should use
+an equivalent backend-specific workspace rather than put host and device
+arrays into one object. Do not repeatedly reorganize either workspace merely
+for tidiness after the ownership and lifetime rules are established.
 
 ### Failures
 
 Library APIs use exceptions. A future process-level CLI may translate them
 into exit statuses.
 
+Validate caller-controlled invariants once at the narrowest public or object
+construction boundary that owns them. `canny` owns validation of its image,
+parameters, output, backend/residency selection, and workspace compatibility;
+`rgb_to_grayscale` owns its separate input/output contract; and workspace and
+CCL constructors own their construction arguments and optional dependency
+selection. Private numerical stages and compiled kernels may rely on those
+established invariants and should not duplicate the same full-array checks.
+
 - `TypeError`: unsupported array implementation or dtype, and backend-residency
   mismatches.
 - `ValueError`: invalid shape, non-finite or out-of-range image values, invalid
-  sigma or thresholds, or an incompatible output/workspace shape.
+  sigma or thresholds, an unknown or incompatible CCL selection, an
+  incompatible output/workspace shape, or simultaneous explicit `ccl` and
+  `workspace` selection.
 - `RuntimeError`: an explicitly requested backend or optional implementation
   is unavailable.
 
@@ -167,6 +219,16 @@ correctness measure only if evidence requires it.
 SciPy CCL remains the supported default CPU direction. The optional custom
 nogil/preallocated cc3d binding is experimental and must be selected
 explicitly; merely importing it must not change execution behavior.
+
+The initial integration should establish the SciPy path and the narrow CCL
+strategy boundary first. The cc3d binding and build scaffolding should then be
+reviewed and integrated as a separate change within the refined CPU roadmap
+item. Selection should resolve to a callable strategy or similarly narrow
+interface, not a dictionary of module objects or an availability global.
+Because an implementation may use sparse label identifiers, its component
+count must not be assumed to equal its maximum label identifier; workspace
+sizing and label-retention logic must honor the strategy's actual label-index
+space.
 
 When the binding is available, the primary optimized CPU-versus-GPU benchmark
 should prefer the cc3d CPU path so that the comparison uses specialized

@@ -151,6 +151,11 @@ universally faster than SciPy. Select cc3d explicitly rather than through an
 availability global that silently changes execution. When available, prefer
 the nogil/preallocated cc3d path for the primary optimized custom CPU-versus-GPU
 benchmark, with the SciPy result labeled as supplementary or appendix context.
+The public `ccl` argument defaults to `None`, meaning the backend default, and
+is mutually exclusive with an explicitly supplied workspace. A CPU workspace
+records its selected CCL implementation; do not accept a second CCL selection
+that could disagree with it. Resolve CCL names through a narrow callable
+strategy boundary rather than storing implementation modules in a registry.
 
 The refined GPU direction may use CuPy/CuPyX, `ElementwiseKernel`,
 runtime-compiled CUDA/HIP-compatible code, custom CCL operations, and reusable
@@ -254,6 +259,10 @@ not decide them implicitly while doing unrelated work.
 - Keep output buffers separate from temporary workspaces. Returned output must
   remain valid across workspace reuse; a caller-supplied output remains
   caller-owned.
+- If no workspace is supplied, the public operator constructs a temporary
+  backend-appropriate workspace after validation and backend resolution, then
+  executes through the same internal path used for a reusable workspace.
+  Distinguish allocation-inclusive calls from reusable-workspace timing.
 - Treat workspace buffers as private implementation state. Normal first use and
   reuse must initialize every scratch value that a call reads, so call `n + 1`
   does not depend on call `n`. Caller replacement, resizing, retyping, or
@@ -279,6 +288,13 @@ follows array residency and never transfers an array: NumPy selects CPU and
 CuPy selects GPU. Explicit backend/residency mismatches and unavailable forced
 backends fail clearly. Library code uses exceptions; only a process-level CLI
 uses return codes.
+
+Validate a caller-controlled invariant once at the narrowest public or object
+construction boundary that owns it. The public Canny operator owns its full
+input, parameter, output, backend, and workspace compatibility checks;
+workspace/strategy factories own their construction arguments. Private stages
+and compiled kernels may rely on those established invariants rather than
+repeat the same validation.
 
 The CLI should eventually expose image path, ordinary Canny parameters,
 backend choice, reference comparison, stage reporting, and benchmark block
