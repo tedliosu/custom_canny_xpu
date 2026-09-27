@@ -48,6 +48,13 @@ Use risk-weighted review. Passing tests are evidence for the behavior encoded
 by those tests, not proof that the intended contract is correct. Explain
 meaningful assumptions and tradeoffs so the maintainer can evaluate them.
 
+Keep the maintainer's active working set to at most three distinct concepts,
+actions, or decisions. Whenever four or more items matter, externalize them as
+a written numbered or bulleted checklist rather than requiring them to be held
+in working memory. Mark the current three-item subset and keep completed and
+deferred items visible in the larger checklist when that context remains
+useful.
+
 The maintainer has limited time while completing a master's program. Prefer
 small, reproducible, high-leverage changes. Continue performance tuning only
 when there is a specific testable hypothesis and bounded cost. Treat a new CCL
@@ -157,6 +164,15 @@ records its selected CCL implementation; do not accept a second CCL selection
 that could disagree with it. Resolve CCL names through a narrow callable
 strategy boundary rather than storing implementation modules in a registry.
 
+For the unbatched CPU operator, use the full logical-core worker set made
+available to the process and numerical runtime wherever a stage exposes CPU
+parallelism. Do not add a public thread-count parameter, per-operator thread
+tuning, or a thread-count-dependent algorithm fallback. Process affinity,
+container limits, and runtime configuration still define which logical cores
+are actually available. Reconsider worker partitioning only as part of the
+future batch/video design, where frame-level and inner-operator parallelism can
+interact.
+
 The refined GPU direction may use CuPy/CuPyX, `ElementwiseKernel`,
 runtime-compiled CUDA/HIP-compatible code, custom CCL operations, and reusable
 device workspaces. CuPy should remain useful on both CUDA and ROCm where the
@@ -237,6 +253,10 @@ not decide them implicitly while doing unrelated work.
 - Document public and cross-module interfaces: purpose, parameters, accepted
   shapes/dtypes, return value, mutation, workspace ownership, and meaningful
   exceptions.
+- Give every function and method, including private helpers and tests, a
+  docstring that states its purpose, documents all inputs, and documents its
+  output explicitly, including a `None` return. Document meaningful raised
+  exceptions where they are part of the function contract.
 - Do not expose more end-user Canny parameters than scikit-image without an
   explicit contract decision. In particular, do not add OpenCV-style gradient
   norm or Sobel-aperture controls by default.
@@ -263,6 +283,11 @@ not decide them implicitly while doing unrelated work.
   backend-appropriate workspace after validation and backend resolution, then
   executes through the same internal path used for a reusable workspace.
   Distinguish allocation-inclusive calls from reusable-workspace timing.
+- Keep `edges_kept_bool_mask` as a deliberate dynamically allocated exception
+  to CPU workspace reuse. Allocate it when hysteresis needs it and size it from
+  the current result's required label-index range; do not reserve a
+  full-image-sized retention vector in `CpuWorkspace`. This policy assumes the
+  vector will usually not occupy a majority fraction of the image footprint.
 - Treat workspace buffers as private implementation state. Normal first use and
   reuse must initialize every scratch value that a call reads, so call `n + 1`
   does not depend on call `n`. Caller replacement, resizing, retyping, or
@@ -271,9 +296,10 @@ not decide them implicitly while doing unrelated work.
   clearing, checksums, or reconstruction solely to guard against such
   tampering; inexpensive backend/shape/capacity/dtype compatibility checks are
   still appropriate.
-- The refined implementation should eventually pass the selected type and lint
-  checks. Suppress a diagnostic only when the code is correct and the reason is
-  documented or obvious from local context.
+- The refined implementation should pass Pyright and the selected lint checks
+  without unsuppressed diagnostics. Keep every necessary suppression narrow
+  and document its reason locally; do not use broad suppressions to hide an
+  unresolved typing or lint problem.
 
 Prefer explicit organization around ownership, lifetime, and dispatch
 boundaries. Use objects for stateful resources such as reusable workspaces and
@@ -304,15 +330,18 @@ explicit request for an unavailable GPU or cuCIM/hipCIM reference must fail
 clearly.
 
 Batch/video processing is future work. Do not add broad batching machinery
-until the single-image interface is stable. Retain deliberate single-threaded
-CPU fallbacks where they help evaluate frame threading versus inner-operator
-parallelism, and avoid nested oversubscription.
+until the single-image interface is stable. The current unbatched CPU operator
+does not retain a single-thread fallback or expose thread-count tuning. Decide
+frame threading, worker partitioning, and nested-oversubscription controls only
+when batch/video work is separately scoped.
 
 ## Correctness and testing
 
-Use `pytest` for the eventual Python test suite unless a concrete need supports
-another choice. Include both positive behavior and representative failure
-paths.
+Use `pytest` for the Python test suite unless a concrete need supports another
+choice. Every added public or cross-module behavior must have tests for both
+expected successful behavior and representative expected failure behavior.
+Apply the same paired approach to private behavior when it has a meaningful
+failure contract.
 
 After meaningful numerical or performance changes, verify:
 

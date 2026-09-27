@@ -165,6 +165,15 @@ an equivalent backend-specific workspace rather than put host and device
 arrays into one object. Do not repeatedly reorganize either workspace merely
 for tidiness after the ownership and lifetime rules are established.
 
+`edges_kept_bool_mask`, the one-dimensional table that maps component labels
+to the keep/discard decision, is a deliberate exception to CPU workspace
+preallocation. When hysteresis needs it, allocate it dynamically from the
+current labeling result's required label-index range. Do not reserve it at a
+full-image-derived capacity in `CpuWorkspace`: the working assumption is that
+this table will usually not consume a majority fraction of the full image
+footprint. This allocation remains part of Canny execution timing and should be
+revisited only if representative measurements disprove the assumption.
+
 ### Failures
 
 Library APIs use exceptions. A future process-level CLI may translate them
@@ -236,6 +245,16 @@ hysteresis implementations on both sides. The SciPy result should remain a
 clearly labeled supplementary or appendix result. This improves the
 engineering comparison but does not make it architecture-pure: the CPU and GPU
 still use different CCL algorithms and expose different parallelism.
+
+## CPU threading
+
+The unbatched CPU operator uses the full logical-core worker set available to
+the process and numerical runtime for stages that expose CPU parallelism. It
+does not expose thread-count tuning, select a different algorithm from the
+detected thread count, or retain a single-thread execution fallback. Operating
+system affinity, container limits, and numerical-runtime configuration define
+the actually available worker set. Frame-level worker partitioning and nested
+oversubscription are deferred to separately scoped batch/video work.
 
 ## Reference disagreement
 

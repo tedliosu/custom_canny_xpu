@@ -12,12 +12,12 @@ dataflow, workspace reuse, dtype behavior, backend differences, NMS, and
 CCL-based hysteresis that a black-box call normally hides. It is not a general
 recommendation to rewrite Canny by hand.
 
-This is an early repository. The checkout currently contains a small
-NumPy/CuPy backend registry and a connected-component-labeling (CCL) form of
-double hysteresis. The complete experimental CPU and GPU implementations still
-need to be integrated from reviewed prototypes. Nothing in this README should
-be read as a claim that the full operator or benchmark harness is already
-available here.
+This is an early repository. The checkout currently contains initial package
+scaffolding, a reusable CPU workspace factory, a small NumPy/CuPy backend
+registry, and a connected-component-labeling (CCL) form of double hysteresis.
+The complete experimental CPU and GPU implementations still need to be
+integrated from reviewed prototypes. Nothing in this README should be read as
+a claim that the full operator or benchmark harness is already available here.
 
 ## Project goals
 
@@ -34,6 +34,33 @@ available here.
   features are available.
 - Provide a compact non-generative-AI GPGPU case study without turning this
   repository into a general benchmark framework.
+
+## Illustrative business case
+
+The following scenario is fictitious and exists only to give the educational
+project plausible industrial grounding. It does not describe an actual client,
+contract, deployment, or validated manufacturing system.
+
+Hawkeye Computer Vision Quality Assurance Inc. has hired you as a data-science
+contractor to investigate whether its existing Python ndarray-based
+computer-vision inspection application for CNC-machined parts can be
+accelerated without materially changing its edge-detection behavior. Its
+customers want to increase machining throughput, which increases the volume of
+inspection images that the quality-assurance software must process. Profiling
+has identified Canny edge detection as a significant contributor to
+end-to-end inspection latency.
+
+The task is to investigate whether CPU and GPU implementations can accelerate
+the Canny portion while preserving its intended semantics. Performance must be
+evaluated together with correctness by comparing custom output against the
+existing reference implementation and measuring disagreement. The exercise
+does not claim to establish end-to-end defect-detection accuracy for a complete
+manufacturing system; its narrower goal is improved Canny throughput with edge
+maps sufficiently similar for a hypothetical downstream inspection workflow.
+Accordingly, no speed result should be interpreted without its accompanying
+semantic-agreement evidence.
+
+## Engineering lessons
 
 The main engineering lesson so far is that controlling dataflow often matters
 more than merely choosing a lower-level language. Separable filtering, local
@@ -98,11 +125,17 @@ irregular connectivity remains hard.
   reduction and CPU/GPU Gaussian-footprint experiments and their limits.
 - `docs/operator-contract.md` defines the reviewed initial public behavior that
   the refined implementation must satisfy.
+- `src/custom_canny_xpu/` contains the initial importable package, CPU CCL
+  strategy boundary, and reusable `CpuWorkspace` factory.
+- `tests/` contains the initial package and CPU-workspace success and failure
+  tests.
+
+## Package organization
 
 The current root-level modules are implementation scaffolding, not the stable
-public API. The refined implementation will use a conventional
-`src/custom_canny_xpu/` package, with `canny` and `rgb_to_grayscale` exported
-from the package. A root-level `main.py` will call those operators and remain
+public API. The refined implementation is being built in the conventional
+`src/custom_canny_xpu/` package, which will export `canny` and
+`rgb_to_grayscale`. A root-level `main.py` will call those operators and remain
 the application/CLI boundary rather than contain their implementations.
 Supported versions, dependency metadata, and installation commands remain to
 be defined.
@@ -142,6 +175,14 @@ buffers; it does not materialize full-frame padded inputs. That external draft
 still normalizes gradient magnitudes with a NumPy maximum reduction.
 Integration must remove that per-image normalization so thresholds follow the
 reviewed absolute-magnitude contract.
+
+The unbatched refined CPU implementation uses the full logical-core worker set
+available to its process/runtime for parallel-capable stages. It does not
+expose per-operator thread-count tuning or switch to a separate single-thread
+algorithm. Such partitioning is deferred to future batch/video work. The
+component-retention vector used by hysteresis is deliberately allocated from
+the current label-index requirement rather than reserved at full-image-derived
+capacity in the reusable workspace.
 
 The refined GPU direction uses CuPy/CuPyX, runtime-compiled CUDA/HIP-compatible
 kernels, custom NMS and CCL operations, and reusable device workspaces. CuPy
@@ -197,6 +238,8 @@ only and fixed nearest-boundary semantics.
 Correctness work should include:
 
 - focused unit tests for individual stages and boundary cases;
+- paired expected-success and representative expected-failure tests for each
+  public or cross-module behavior;
 - CPU/GPU agreement tests under the same logical contract;
 - disagreement counts and rates against scikit-image on multiple images;
 - explicit dtype, threshold, border-mode, shape, and residency information;
@@ -333,14 +376,18 @@ reusable benchmark, subject to its own reviewed decision.
 This is the canonical high-level backlog. Keep separate future work visible
 when completing a parent item.
 
-1. Create the `src/custom_canny_xpu/` package and root `main.py`, then integrate
-   the reviewed refined CPU code against the documented operator contract
-   without treating the external prototype as finalized source. First add the
-   public validation/backend boundary, one explicit CPU workspace object, and
-   the SciPy-default CPU implementation. Keep the adapted hysteresis
-   decomposition separate from repository-specific CCL helpers. Then review
-   and integrate the optional cc3d binding as a separate change behind explicit
-   selection and a lazy optional-import boundary.
+1. Continue integrating the reviewed refined CPU code against the documented
+   operator contract without treating the external prototype as finalized
+   source. The `src/custom_canny_xpu/` package, explicit CPU workspace object,
+   SciPy-default CCL resolver boundary, and their initial tests are present.
+   Next add public validation and CPU dispatch, then complete the SciPy-default
+   CPU implementation with the ordinary CPU stages and attributed hysteresis
+   decomposition, keeping that decomposition separate from
+   repository-specific CCL helpers. Add root `main.py` as the application
+   boundary, and bring integrated functions under the documented docstring,
+   Pyright, lint, and paired-test rules. Finally, review and integrate the
+   optional cc3d binding as a separate change behind explicit selection and a
+   lazy optional-import boundary.
 2. Integrate the optional GPU implementation with graceful CPU-only import and
    clear forced-GPU failure behavior. Record the exact upstream CuPy revision
    for derived CCL code and add its attribution and license terms to
