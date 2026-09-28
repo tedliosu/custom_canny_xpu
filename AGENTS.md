@@ -363,10 +363,18 @@ the selected future CUB/rocPRIM primitive opportunity. Keep its time outside
 Canny-only measurements, and do not retain per-image magnitude normalization
 merely to preserve a reduction inside the operator.
 
-Exercise hysteresis on multiple content classes, not resolution alone. Record
+Exercise hysteresis on multiple content classes, not resolution alone. Select
+small purpose-specific subsets: correctness cases cover semantic behavior,
+performance cases cover distinct workload shapes, and deep profiling is
+reserved for diagnostically useful cases or outliers. Do not make every
+candidate class mandatory or form a combinatorial matrix across resolutions,
+parameters, backends, CCL implementations, timing boundaries, and profiler
+configurations. Do not assume random/noise input is a worst case or that a long
+geometric path necessarily produces difficult union-find parent trees. Record
 foreground density and component/connectivity characteristics when practical;
-component counts, sizes, chain structure, and propagation behavior can change
-CCL performance dramatically at fixed dimensions.
+component counts, sizes, chain structure, late equivalence merging, and
+propagation behavior can change CCL performance dramatically at fixed
+dimensions.
 
 A few CPU/GPU pixel differences near floating-point or threshold boundaries
 may be acceptable. Do not establish a numeric tolerance from one convenient
@@ -396,6 +404,14 @@ Every performance claim must preserve the relevant distinctions among:
 - dtype and precision;
 - dependency, compiler, driver, and runtime versions; and
 - semantic/reference and specialized implementations.
+
+Routine Canny benchmark reports should include the final edge-pixel fraction
+where practical. Weak/strong candidate fractions, component counts and size
+distributions, convergence/pass counts, CCL-kernel-only timing, and detailed
+profiler counters are targeted CCL diagnostics, not requirements for every
+benchmark. Prefer reporting a range across tested connectivity classes,
+representative natural-image performance, and stage-level explanations for
+outliers over presenting one synthetic image as a universal worst case.
 
 Use `time.perf_counter()` for host timing. Synchronize GPU work explicitly.
 For amortized timing, use blocks of iterations and synchronize at a documented
@@ -427,6 +443,15 @@ Do not claim:
 - that an entire operator improved by a stage-specific speedup; or
 - that MI300X-versus-Ada results isolate hardware architecture from software,
   compiler, runtime, environment, and tuning differences.
+
+Keep the informal baseline-selection evidence calibrated and separate. The
+Python Community Discord inquiry and the 2026-09-27 Gemini-powered Google AI
+Mode, Muse Spark, and DeepSeek survey are independent informal reconnaissance,
+not an exhaustive ecosystem review, expert certification, proof of
+exclusivity, or performance ranking. They support using cuCIM as the practical
+direct-CuPy CUDA baseline and hipCIM as the corresponding ROCm-side baseline
+where supported. They do not change scikit-image's role as the primary
+semantic reference or create an obligation to survey CPU libraries.
 
 Do not create matching internal stage timings for third-party references by
 vendoring their implementations, patching installed packages, or depending on

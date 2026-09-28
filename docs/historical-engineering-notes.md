@@ -361,14 +361,111 @@ variable. CuPy generations, CUDA versus ROCm compilers, warp32 versus wave64,
 cloud/VF state, package versions, driver/runtime state, and unequal tuning all
 confound the comparison.
 
+## Content-sensitive benchmark suite design
+
+The broad candidate taxonomy for CCL-sensitive Canny inputs includes:
+
+1. low-edge or smooth images;
+2. ordinary natural images;
+3. highly textured natural images;
+4. random or noise images;
+5. sparse isolated-edge patterns;
+6. dense, simply connected structures;
+7. long continuous strokes, mazes, or space-filling-like patterns;
+8. late-merge or provisional-component torture patterns; and
+9. near-threshold or weak-edge-heavy images.
+
+This is a menu, not a mandatory test matrix. Choose a small, partially
+overlapping subset according to the question being answered:
+
+- A correctness-oriented subset can use smooth or low-edge input, ordinary
+  natural content, near-threshold weak edges, sparse isolated components, and
+  a dense but simply connected structure. Add one late-merge pattern only if it
+  exposes useful equivalence-resolution behavior. Together these cover flat or
+  nearly flat input, threshold boundaries, isolated components, weak-component
+  retention based on strong-pixel membership, one large component, and a
+  representative difficult merge case.
+- A performance-oriented subset can use ordinary and highly textured natural
+  content, random/noise input, sparse isolated components, dense/simple
+  connectivity, and a late-merge pattern. Add a long stroke or maze-like case
+  only if its measured behavior is not already represented. These cases sample
+  many small components, one large simple component, dense candidates, and
+  many provisional roots that merge later.
+- A deep-profiler subset should contain only cases that are diagnostically
+  interesting or explain an observed outlier. It need not repeat every routine
+  correctness or performance case.
+
+Random/noise input is not inherently a worst case: it may produce many small
+fragments that resolve more easily than a large or late-merging connected
+structure. Likewise, a long snake, Hilbert-like curve, Morton/Z-order-like
+path, or maze has large geometric extent but does not necessarily create a
+difficult parent tree. Comb, stripe, or maze patterns that force many
+provisional components to merge later may be more adversarial, but they remain
+tested synthetic cases rather than formal worst cases.
+
+Routine reports should record, where practical, whole/operator and Canny-only
+timing; blur, gradient, NMS, and hysteresis/CCL stage timing; dimensions;
+content class; dtype; sigma and thresholds; and final edge-pixel fraction. A
+targeted CCL investigation may additionally record weak/strong candidate
+fractions, component count and size distribution, convergence or pass count,
+CCL-kernel-only timing, and relevant profiler counters such as L2/DRAM traffic,
+excess sectors, atomics, and stalls. Those diagnostics are not required for
+every routine benchmark.
+
+Avoid crossing every content class with every resolution, sigma, threshold
+pair, backend, CCL implementation, timing boundary, and profiler setup. Report
+throughput ranges across tested connectivity classes, representative or median
+natural-image performance, best and worst observed tested classes, and
+stage-level explanations for content-sensitive outliers. Do not elevate one
+synthetic result into a universal characterization.
+
 ## Reference implementation context
 
 cuCIM became the primary serious CUDA library baseline because it accepts CuPy
-arrays directly and supplies a scikit-image-style Canny operator. An informal
-Python Community Discord inquiry did not identify a faster directly
-CuPy-compatible alternative. This was community reconnaissance, not a formal
-literature review, expert certification, or proof that cuCIM is globally
-fastest.
+arrays directly and supplies a scikit-image-style Canny operator. hipCIM ports
+the same API lineage to ROCm and is the natural corresponding baseline where
+supported. The primary semantic/reference baseline remains scikit-image.
+
+Two separate pieces of informal reconnaissance support this practical baseline
+choice:
+
+- An inquiry in the Python Community Discord did not identify a faster Canny
+  implementation that directly accepts CuPy arrays.
+- On 2026-09-27, the maintainer informally asked Gemini-powered Google AI Mode,
+  Muse Spark, and DeepSeek about maintained or production-oriented Canny
+  implementations with that same direct-CuPy public interface. All three
+  returned substantially the same practical ecosystem picture and did not
+  identify another such implementation.
+
+Neither exercise was a systematic literature review, exhaustive package
+survey, expert certification, proof that no alternative exists, or evidence
+that cuCIM/hipCIM is globally fastest. Keep them separate rather than combining
+their agreement into a stronger claim.
+
+The commonly mentioned alternatives occupy different interface or maintenance
+categories:
+
+- OpenCV CUDA provides Canny through its CUDA interfaces, which use
+  `cv2.cuda.GpuMat` rather than directly accepting a `cupy.ndarray`. It remains
+  mature production-native context.
+- Kornia provides a GPU-capable Canny operator for PyTorch tensors rather than
+  a CuPy-native interface.
+- The historical `cupyimg` project includes a CuPy/skimage-style Canny and was
+  described during this reconnaissance as having been superseded by migration
+  toward cuCIM; it is not treated as the current maintained baseline.
+- `cupyx.scipy.ndimage` provides lower-level operations such as Sobel, not a
+  complete Canny operator.
+
+Relevant primary project pages include the
+[cuCIM API index](https://docs.rapids.ai/api/cucim/legacy/genindex/),
+[official hipCIM repository](https://github.com/ROCm-LS/hipCIM),
+[OpenCV CUDA API](https://docs.opencv.org/4.7.0/d1/d1a/namespacecv_1_1cuda.html),
+[Kornia 0.8.2 filter API](https://kornia.readthedocs.io/en/v0.8.2/filters.html),
+[CuPy 14.0.1 Sobel API](https://docs.cupy.dev/en/v14.0.1/reference/generated/cupyx.scipy.ndimage.sobel.html),
+and the [cupyimg repository](https://github.com/mritools/cupyimg). No analogous
+CPU ecosystem survey was performed, intentionally: scikit-image is already the
+selected semantic reference for the specialized custom contract, and this
+documentation update does not open a separate CPU-baseline search.
 
 In one roughly 122.99 MP fp32 grayscale CUDA comparison, cuCIM took about
 40.1 ms and the custom implementation about 35.0 ms. The roughly 14–15%

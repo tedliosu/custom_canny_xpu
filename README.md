@@ -268,6 +268,7 @@ Record, as applicable:
 
 - hardware, OS, Python, library, compiler, driver, and runtime versions;
 - image dimensions, content class, dtype, and operator parameters;
+- final edge-pixel fraction;
 - cold/JIT/initialization runs separately from warm steady-state runs;
 - CPU versus GPU and CUDA versus ROCm;
 - device-resident/operator-only versus transfer-inclusive/end-to-end timing;
@@ -286,7 +287,22 @@ addressing, or instruction work per externally fetched byte.
 Hysteresis must be exercised on multiple content classes. Its connectivity
 graph, component distribution, root-chain behavior, and convergence can change
 substantially even at fixed dimensions, so a single MPix/s figure is not a
-content-independent characterization.
+content-independent characterization. Keep the suite small and choose cases by
+purpose: correctness testing covers semantic behaviors, performance testing
+covers distinct workload shapes, and deep profiling is reserved for
+diagnostically useful cases and outliers. Do not require every candidate class
+for every test or cross every class with every resolution, parameter, backend,
+CCL implementation, timing boundary, and profiler configuration.
+
+An initial correctness subset may include smooth or low-edge input, ordinary
+natural content, near-threshold weak edges, sparse isolated components, and a
+dense but simply connected structure. An initial performance subset may add
+highly textured natural content, random/noise input, and a late-merging
+provisional-component pattern. Include a long stroke or maze-like pattern only
+if it exposes behavior not already represented. Random noise is not assumed to
+be a worst case, and geometric path length alone does not establish difficult
+union-find behavior. More detailed guidance lives in the historical engineering
+notes.
 
 Use `time.perf_counter()` as the host timing source. GPU timing regions must
 have an explicit synchronization boundary so asynchronous work is not reported
@@ -309,10 +325,18 @@ Useful baselines serve different purposes:
 - OpenCV: mature production-native context, not a required semantic match.
 
 cuCIM is the primary serious CUDA library baseline because it accepts CuPy
-arrays directly and offers a scikit-image-style Canny operator. An informal
-inquiry in the Python Community Discord did not identify a faster directly
-CuPy-compatible alternative. That reconnaissance was not a literature review,
-expert certification, or proof that no faster implementation exists.
+arrays directly and offers a scikit-image-style Canny operator. hipCIM is the
+corresponding ROCm-side baseline where supported. An informal inquiry in the
+Python Community Discord did not identify a faster directly CuPy-compatible
+alternative. Separately, an informal 2026-09-27 survey using Gemini-powered
+Google AI Mode, Muse Spark, and DeepSeek did not identify another maintained,
+production-oriented Canny implementation with the same direct-CuPy ndarray
+interface. Neither exercise was an exhaustive literature or ecosystem review,
+expert certification, proof of exclusivity, or evidence that cuCIM/hipCIM is
+globally fastest. OpenCV CUDA uses its own `GpuMat` interface, while Kornia is
+PyTorch Tensor based, so they remain useful context in different
+interoperability categories. No analogous CPU ecosystem survey was performed;
+scikit-image remains the deliberately selected CPU semantic reference.
 
 Detailed internal stage timing is primarily for code owned by this repository.
 For third-party references, prefer public timing boundaries such as the whole
