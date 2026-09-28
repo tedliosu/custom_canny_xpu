@@ -223,6 +223,79 @@ characteristics materially affect footprint scaling. It does not isolate Ada
 microarchitecture: generation, execution-resource count, caches, memory,
 power, clocks, host platform, and CuPy patch version all differed.
 
+### i5-11400H AVX-512 control experiment
+
+The laptop CPU results showed an unexpected cross-system pattern: the Ryzen 7
+5700X generally led at smaller footprints, while the smaller 6-core/12-thread
+Tiger Lake i5-11400H became faster or more competitive at wider footprints.
+The maintainer investigated whether AVX-512-enabled Numba/LLVM code generation
+contributed to that crossover. This used Numba 0.65.1 and the same separable
+FP32 convolution from the footprint benchmark. AVX-512 was exposed by the
+laptop OS and detected by Numba.
+
+Inspection of the native generated assembly found extensive `zmm` operations,
+vector gathers including `vgatherdps` and `vgatherqps`, FMA instructions, and
+substantial vectorized index/address-generation machinery. Repeating the same
+benchmark after disabling AVX-512 features through `NUMBA_CPU_FEATURES`
+produced `ymm`/`xmm` vector code instead. Explicitly restoring the AVX-512
+feature set returned timings close to the native run without an explicit
+override. The recorded controls were:
+
+```text
+NUMBA_CPU_FEATURES="-avx512f,-avx512cd,-avx512vl,-avx512dq"
+NUMBA_CPU_FEATURES="+avx512f,+avx512cd,+avx512vl,+avx512dq"
+```
+
+The first disabled the tested AVX-512 feature set; the second explicitly
+re-enabled it as a control against the ordinary no-override native run.
+
+The most relevant approximate 122.99 MP results were:
+
+| Width | Native / AVX-512 enabled | AVX-512 disabled | Disabled/native time |
+| ---: | ---: | ---: | ---: |
+| 5 | 127 ms | 118 ms | 0.93x |
+| 9 | 159 ms | 162 ms | 1.02x |
+| 13 | 248 ms | 220 ms | 0.89x |
+| 17 | 230 ms | 304 ms | about 1.33x |
+| 25 | 295 ms | 415 ms | 1.41x |
+
+The roughly 1.3–1.4x penalty without AVX-512 at 17 and 25 taps also appeared
+consistently at the smaller tested image sizes. The 13-to-17-tap discontinuity
+is especially informative: the native path made 17 taps faster than 13, while
+the AVX-512-disabled timings returned to more conventional monotonic scaling.
+The separate native run above differs at some widths from the earlier laptop
+table, most visibly at five taps; preserve them as distinct approximate runs
+rather than silently replacing one with the other.
+
+This establishes that AVX-512-enabled Numba/LLVM code generation materially
+affected the i5-11400H's wide-footprint results. It does not establish a simple
+mapping such as “17 taps equals one 16-float AVX-512 vector.” Although `zmm`
+registers were common, much of the floating-point work still appeared in
+`ymm` registers, and the wider ISA also participated in gather-heavy index and
+address work. The exact loop transformation and limiting resource have not
+been isolated.
+
+AVX-512 was not universally beneficial: the disabled path matched or beat the
+native path at some smaller and moderate widths. The durable interpretation is
+that Numba/LLVM selected a substantially different AVX-512-enabled vectorized
+implementation which became more favorable around 17 taps and above in this
+workload. Do not generalize the result to other CPUs, Numba convolutions, or
+AVX-512 workloads.
+
+This controlled result helps explain, but does not completely isolate, the
+earlier 5700X/i5-11400H crossover. Disabling AVX-512 substantially reduced the
+laptop's large-footprint advantage. At 25 taps and 122.99 MP, the earlier
+5700X and the AVX-512-disabled laptop both landed near 415 ms; that numerical
+coincidence should not be overinterpreted because their hardware and software
+environments differed. More broadly, changing filter footprint can change
+which architectural resources matter enough to alter CPU rankings, just as the
+RTX 5000 Ada and RTX 3050 Laptop records showed different GPU scaling.
+
+There is no project requirement to reproduce an analogous CUDA ISA-control
+experiment. Isolating CuPyX code generation that way would require more custom
+kernel or compiler-control work than this bounded Canny investigation
+justifies.
+
 ## Relevance to the Canny observations
 
 For the named 23.23 MP Canny workload, representative warm RTX 5000 Ada stage
@@ -254,6 +327,9 @@ reviewed CPU and GPU filtering paths already exploit separable structure.
 - Raw external-memory bandwidth ratios are not stage-speedup ceilings.
 - Stencil footprint can materially change CPU/GPU ratios, and moderate widths
   were nearly flat in GPU time on one large Ada workload.
+- On the i5-11400H, AVX-512-enabled Numba/LLVM code generation materially
+  improved the wider 17- and 25-tap cases, but was not consistently faster at
+  smaller widths; CPU ISA effects are workload-shape dependent.
 - The mobile Ampere platform scaled very differently, so hardware and platform
   details must accompany GPU filtering claims.
 - Generated general-purpose CuPyX filter kernels can map regular stencil work

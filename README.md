@@ -69,7 +69,12 @@ arrays, and reusable workspaces account for much of the improvement in the
 newer prototypes. Recent filtering experiments also show that regular stencil
 work cannot be reduced to a raw memory-bandwidth comparison: overlapping
 windows, footprint size, execution resources, cache behavior, instruction
-throughput, and latency hiding can change CPU/GPU ratios substantially.
+throughput, and latency hiding can change CPU/GPU ratios substantially. A
+same-CPU Numba experiment on an AVX-512-capable i5-11400H further showed that
+the enabled SIMD feature set can materially change wider-footprint convolution
+performance and even contribute to a cross-CPU ranking reversal. AVX-512 was
+not uniformly faster at smaller footprints, and the precise instruction-level
+cause of the wider-footprint gain remains unresolved.
 
 ## Operator model
 
@@ -266,7 +271,9 @@ derived speedups as approximate unless a specific experiment records otherwise.
 Performance results are meaningful only when their boundaries are stated.
 Record, as applicable:
 
-- hardware, OS, Python, library, compiler, driver, and runtime versions;
+- hardware, OS, Python, library, compiler, driver, and runtime versions,
+  including exposed CPU ISA features or compiler feature overrides when they
+  materially affect the result;
 - image dimensions, content class, dtype, and operator parameters;
 - final edge-pixel fraction;
 - cold/JIT/initialization runs separately from warm steady-state runs;

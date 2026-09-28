@@ -402,7 +402,8 @@ Every performance claim must preserve the relevant distinctions among:
 - allocation-inclusive and preallocated/reused workspace;
 - image shape/content and synthetic versus natural inputs;
 - dtype and precision;
-- dependency, compiler, driver, and runtime versions; and
+- dependency, compiler, driver, and runtime versions, including exposed CPU ISA
+  features and compiler feature overrides when relevant; and
 - semantic/reference and specialized implementations.
 
 Routine Canny benchmark reports should include the final edge-pixel fraction
@@ -426,6 +427,14 @@ behavior. Raw CPU-RAM versus GPU-VRAM bandwidth is not an upper bound on a
 stage speedup. Report filter footprint as well as image size, and compare GPU
 platforms without assigning a difference to microarchitecture alone when
 generation, resource count, cache, memory, power, clocks, or software differ.
+
+Treat CPU ISA-control results as workload- and compiler-specific evidence. An
+assembly change establishes that code generation changed, but not which exact
+instruction, loop transformation, or hardware resource caused a timing change.
+Do not generalize the i5-11400H Gaussian result into “AVX-512 always wins” or
+assume a filter width maps directly to one SIMD vector. Do not require an
+equivalent CUDA ISA-control experiment when reproducing it would need custom
+kernel or code-generation work outside the bounded Canny question.
 
 The inspected NumPy `ndarray.max()` results are consistent with an efficient
 streaming reduction, not an obvious pathological primitive. A full-frame
