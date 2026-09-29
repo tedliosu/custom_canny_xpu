@@ -24,7 +24,10 @@ The reviewed CPU prototype uses a generic Numba separable convolution with
 `parallel=True`, `nogil=True`, and `fastmath=True`. It performs horizontal and
 vertical 1D passes with explicit nearest-boundary indexing and reusable
 intermediate/output buffers. It does not perform an explicit full-frame
-`np.pad` for blur or gradients.
+`np.pad` for blur or gradients. The latest reviewed variant keeps a direct
+horizontal pass and uses an eight-output register-blocked vertical interior
+with a scalar tail. Earlier timing tables in this document used the original
+direct vertical loop unless they are explicitly labeled as blocked.
 
 For Gaussian blur, `truncate=4.0` and
 
@@ -130,6 +133,9 @@ CPU convolution with preallocated CuPyX `gaussian_filter` using FP32,
 `mode="nearest"`, and `truncate=4.0`. GPU events bounded GPU work. It reported
 latency, MPix/s, and CPU/GPU ratios rather than a misleading logical-tap GB/s.
 ChatGPT generated this benchmark in one pass from the maintainer's request.
+The first sweeps below used the original direct vertical loop. A later
+eight-output register-blocked rerun is recorded separately rather than silently
+replacing this evidence.
 
 | `sigma` | Radius | 1D width |
 | ---: | ---: | ---: |
@@ -296,6 +302,113 @@ experiment. Isolating CuPyX code generation that way would require more custom
 kernel or compiler-control work than this bounded Canny investigation
 justifies.
 
+### Axis isolation and generated-loop regimes
+
+A later experiment kept the compiled separable-convolution function fixed but
+independently selected unit or nonunit horizontal and vertical kernels. On the
+i5-11400H, the strong AVX-512 effect was concentrated in the row-strided
+vertical pass. Representative AVX-512-disabled/native vertical ratios were
+only about 1.05–1.10x at 13 taps but about 1.4–1.5x at 17 and 25 taps. A
+roughly 1.5x wide-footprint effect remained at one thread, so the observation
+was not primarily a multicore bandwidth, scheduling, or package-level result.
+The contiguous horizontal control was comparatively ISA-insensitive.
+
+Finer odd-width sweeps also produced non-monotonic transitions around widths
+7–9, 15–17, and 31–33. Kernel width is a runtime trip count rather than a Numba
+specialization key. Assembly showed generated main-loop, unrolled tap-chunk,
+and remainder regimes, including boundaries involving groups of 8 and 32
+taps. Those numbers are generated-loop chunk sizes, not SIMD lane counts. Zen
+3 showed its own large discontinuities, including on an unchanged horizontal
+control, so non-monotonic tap behavior is broader than AVX-512 even though
+AVX-512 materially changed the cost of some Tiger Lake regimes.
+
+The original Tiger Lake horizontal interior was largely 256-bit FP32 FMA in
+both ISA configurations. Larger differences appeared in index-heavy vertical
+machinery: the enabled form used opmask registers, wider integer/address
+vectors, masked operations, and gather/index resources, while the disabled
+form required narrower reconstruction and vector-valued masks. The central
+original loop did not establish catastrophic hot-loop spilling; do not reduce
+that result to “AVX2 spills and AVX-512 does not.”
+
+### Eight-output vertical register blocking
+
+The later CPU implementation retains the direct horizontal pass but updates
+eight adjacent vertical-interior outputs together, sharing a tap loop, then
+uses a scalar tail. It allocates no packed tile. Consequently, eight is an
+output block size rather than an input-shape minimum; widths below eight use
+the scalar tail.
+
+Source-level blocking did not force SIMD across the eight neighboring output
+columns. Tiger Lake commonly lowered the exposed outputs into several
+tap-vector/gather-heavy reductions and then horizontally reduced each one.
+With AVX-512 disabled, this blocked worker showed substantially greater
+register pressure and repeated parking/reloading of vector state, unlike the
+less conclusive original-loop spill hypothesis. On Zen 3, the same source
+instead became a shared tap loop with eight scalar FMA accumulators. It
+amortized coefficient loads, address calculations, loop control, and branches
+while exposing independent dependency chains. Register blocking can therefore
+win through instruction-level parallelism and shared bookkeeping without
+packed SIMD across outputs.
+
+At one thread on the Ryzen 7 5700X, representative blocked/original vertical
+speedups grew from about 1.38x at 3 taps through 1.89x at 13 taps, 1.97x at 17
+taps, 2.02x at 25 taps, and 2.39x at 33 taps. The benefit remained substantial
+with 16 threads. Tiger Lake was more dependent on footprint, ISA, and thread
+count: small-footprint single-thread cases could regress, while representative
+12-thread enabled cases improved by about 1.59x at 13 taps, 1.27x at 17 taps,
+and 1.41x at 31 taps. In several threaded blocked cases the disabled/enabled
+penalty fell to roughly 1.10–1.20x rather than the original loop's roughly
+1.4–1.5x wide-footprint penalty.
+
+These cross-run thread-count observations are evidence that profitability can
+depend on thread count, not a controlled scaling study or proof of a specific
+cache, frequency, scheduling, SMT, or memory-system mechanism.
+
+### Full-Canny validation of the blocked implementation
+
+The CPU prototype adopted one global convolution implementation for Gaussian
+and Sobel: direct horizontal, eight-output blocked vertical interior, scalar
+vertical tail, and the existing border logic. This deliberately avoids a
+second tiny-filter implementation and runtime strategy dispatch. In a roughly
+23.23 MP Ryzen 7 5700X Canny run, Gaussian blur improved from roughly 44 ms to
+36 ms, while the fixed three-tap Sobel gradient stage remained in the high-40
+to roughly 50 ms range. The complete operator improved only a few percent
+because NMS and hysteresis remained substantial. Original and blocked versions
+produced byte-for-byte identical final binary edges on that image.
+
+On a roughly 122.99 MP natural image, a direct comparison placed the original
+blur around 241–249 ms and the blocked blur around 161–176 ms, approximately a
+1.46x representative improvement. Gradient stayed near 254 versus 248 ms, NMS
+near 130 ms, and hysteresis near 570 versus 568 ms. Total time including
+grayscale improved from roughly 1.40 s to 1.30 s, about 7%, or approximately
+94–95 MPix/s for the blocked complete path. The optimized bottleneck therefore
+moved clearly toward hysteresis rather than disappearing.
+
+The blocked Gaussian-footprint rerun on the 5700X commonly improved large-image
+CPU time by roughly 1.4–1.5x at widths 9, 13, 17, and 25, with run-to-run
+variation. Because the GPU path was unchanged, representative apparent GPU
+speedups fell from some earlier 50–90x-class comparisons to about 21x at width
+3, 32–44x at width 13, and 40–49x at width 25. The GPU remained dramatically
+faster; improving an avoidably weak CPU code shape made the comparison more
+meaningful.
+
+For the same roughly 123 MP comparison, the custom RTX 5000 Ada path was
+reported around 44–45 ms for device-side grayscale plus Canny and 34–35 ms for
+Canny alone. Later host-to-device, execution, and result-copy boundaries were
+roughly 90–106 ms. The blocked CPU path was about 1.30 s including grayscale,
+and the final CPU and GPU edge maps differed at 48 of 122,991,175 pixels
+(approximately 0.000039%). These remain approximate external-prototype results,
+not checked-in benchmark guarantees.
+
+The register-blocked implementation is the practical Canny stopping point
+unless a correctness defect or large regression appears. Explicit x-direction
+SIMD, packing or line buffers, transpose/layout normalization, architecture or
+footprint dispatch, and a controlled thread-scaling study are valid separate
+research topics, not obligations for this operator. Before presentation on a
+different CPU such as the AMD DevCloud Xeon VM, sanity-check the selected path
+and report any differing behavior rather than assuming Zen 3 or Tiger Lake
+results transfer.
+
 ## Relevance to the Canny observations
 
 For the named 23.23 MP Canny workload, representative warm RTX 5000 Ada stage
@@ -306,11 +419,11 @@ more than a bandwidth stream. The independent maximum benchmark's 14–15x
 ratio does not by itself explain the complete gradient result.
 
 The real blur uses the same `sigma=1.5`, radius-6, 13-tap footprint as the
-isolated experiment. At 122.99 MP, that isolated case reported about 208 ms on
-CPU and 4.16 ms on the RTX 5000 Ada, or about 50x. The Canny blur comparison
-was closer to 40x, plausibly because its timing boundary includes surrounding
-work such as clipping and differs in context. The isolated result independently
-supports the broad scale without proving an exact architectural cause.
+isolated experiment. The original direct-loop 122.99 MP isolated case reported
+about 208 ms on CPU and 4.16 ms on the RTX 5000 Ada, or about 50x. That figure
+belongs to the earlier source generation. The later blocked CPU results reduce
+the apparent Gaussian GPU ratio while preserving the conclusion that the GPU
+is much faster. Neither generation proves an exact architectural cause.
 
 The older operation-class proxy combined a roughly 19.1x NMS-lite ratio for
 regular/local work and a 28.5x labeling ratio into a coarse expectation near
@@ -330,6 +443,13 @@ reviewed CPU and GPU filtering paths already exploit separable structure.
 - On the i5-11400H, AVX-512-enabled Numba/LLVM code generation materially
   improved the wider 17- and 25-tap cases, but was not consistently faster at
   smaller widths; CPU ISA effects are workload-shape dependent.
+- Horizontal and vertical passes are distinct performance motifs on row-major
+  arrays, and runtime tap counts can select discrete generated-loop regimes.
+- Source-level register blocking did not guarantee x-direction SIMD: Tiger
+  Lake and Zen 3 lowered the same source into materially different strategies.
+- The reviewed global blocked vertical implementation improved the real
+  Gaussian stage without materially harming Sobel and is the bounded Canny
+  stopping point rather than the start of a CPU strategy dispatcher.
 - The mobile Ampere platform scaled very differently, so hardware and platform
   details must accompany GPU filtering claims.
 - Generated general-purpose CuPyX filter kernels can map regular stencil work

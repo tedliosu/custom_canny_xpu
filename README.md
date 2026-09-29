@@ -74,7 +74,13 @@ same-CPU Numba experiment on an AVX-512-capable i5-11400H further showed that
 the enabled SIMD feature set can materially change wider-footprint convolution
 performance and even contribute to a cross-CPU ranking reversal. AVX-512 was
 not uniformly faster at smaller footprints, and the precise instruction-level
-cause of the wider-footprint gain remains unresolved.
+cause of the wider-footprint gain remains unresolved. Later axis-isolation and
+register-blocking experiments showed that the row-strided vertical pass was the
+main source of this sensitivity. They also showed that the same blocked source
+can lower to gather-heavy vector reductions on Tiger Lake and scalar
+multi-accumulator instruction-level parallelism on Zen 3. Compiler lowering,
+layout, footprint, ISA, and thread count are therefore part of the observed
+execution shape; source structure alone does not establish a machine strategy.
 
 ## Operator model
 
@@ -174,10 +180,14 @@ default. When available, the explicitly selected nogil/preallocated cc3d path
 is preferred for the primary optimized custom CPU-versus-GPU benchmark; report
 the SciPy path separately as supplementary context. This does not make the
 comparison architecture-pure or establish that cc3d is universally faster.
-The reviewed prototype performs Gaussian and Sobel work with generic separable
-Numba convolution passes, explicit nearest-boundary indexing, and preallocated
-buffers; it does not materialize full-frame padded inputs. That external draft
-still normalizes gradient magnitudes with a NumPy maximum reduction.
+The reviewed prototype performs Gaussian and Sobel work with one generic
+separable Numba convolution, explicit nearest-boundary indexing, and
+preallocated buffers; it does not materialize full-frame padded inputs. Its
+horizontal pass remains direct, while its vertical interior updates eight
+neighboring outputs together and uses a scalar tail. Both Gaussian and Sobel
+use this implementation so the project does not maintain a second convolution
+or a footprint-dependent dispatcher. That external draft still normalizes
+gradient magnitudes with a NumPy maximum reduction.
 Integration must remove that per-image normalization so thresholds follow the
 reviewed absolute-magnitude contract.
 

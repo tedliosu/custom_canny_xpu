@@ -187,6 +187,30 @@ were approximately:
 - default SciPy labeling: 1.44–1.46 s total, 1.24–1.27 s Canny-only, and
   0.651–0.654 s hysteresis.
 
+Later 2026-09-29 runs changed the vertical convolution interior to update eight
+neighboring outputs per tap loop while preserving a scalar tail. These are a
+newer source generation, not replacements for the earlier observations above.
+On the roughly 23.23 MP workload, Gaussian blur improved from about 44 ms to 36
+ms while the three-tap Sobel gradient stage remained in the high-40 to roughly
+50 ms range; the final binary output was byte-for-byte identical between the
+two convolution variants on that image.
+
+On a roughly 122.99 MP natural image, direct original-versus-blocked trials put
+blur around 241–249 versus 161–176 ms, gradients around 254 versus 248 ms, NMS
+around 130 ms in both, and hysteresis around 570 versus 568 ms. Total execution
+including grayscale improved from roughly 1.40 s to 1.30 s, or about 7%, while
+the blur stage improved by about 1.46x. The resulting roughly 94–95 MPix/s
+complete CPU rate is approximate external-prototype evidence. It shows a
+specific filtering improvement and bottleneck migration toward hysteresis, not
+an across-the-board stage speedup or a theoretical CPU limit.
+
+In the corresponding external CPU/GPU comparison, RTX 5000 Ada device-side
+grayscale plus Canny was roughly 44–45 ms, Canny-only roughly 34–35 ms, and a
+later transfer-inclusive boundary roughly 90–106 ms. CPU and GPU final edge
+maps differed at 48 of 122,991,175 pixels, approximately 0.000039%. Preserve
+the device-only, transfer-inclusive, CPU-source-generation, and semantic
+boundaries when citing those results.
+
 The alpha CPU implementation took roughly 6.0 s for Canny on the 23.23 MP
 image, versus roughly 0.20–0.22 s for the refined prototype. The approximate
 25–30x change should be described as an architectural improvement involving

@@ -191,13 +191,19 @@ requires an algorithmic redesign rather than a local substitution.
 
 The reviewed refined prototypes do not materialize full-frame padding for blur
 or gradients. The CPU prototype uses separable Numba loops with explicit
-nearest-boundary handling and reusable buffers. The GPU prototype uses CuPyX
-Gaussian and Sobel filters, followed by ordinary CuPy clip and magnitude
-operations. Both external drafts still contain a per-image maximum reduction
-used for magnitude normalization; remove that normalization during integration
-to satisfy the absolute-threshold contract. Do not attribute historical
-timings to explicit `pad` passes or describe those CuPyX filters as custom
-repository kernels.
+nearest-boundary handling and reusable buffers. Keep its single reviewed
+convolution strategy: a direct horizontal pass, an eight-output
+register-blocked vertical interior, and a scalar vertical tail. Gaussian and
+Sobel both use that implementation. Do not add a second simple convolution,
+footprint switch, CPU-model dispatcher, packing strategy, transpose strategy,
+or explicit-SIMD variant without a new bounded scope decision. The block size
+does not impose an eight-pixel width minimum because the scalar tail handles
+narrower inputs. The GPU prototype uses CuPyX Gaussian and Sobel filters,
+followed by ordinary CuPy clip and magnitude operations. Both external drafts
+still contain a per-image maximum reduction used for magnitude normalization;
+remove that normalization during integration to satisfy the absolute-threshold
+contract. Do not attribute historical timings to explicit `pad` passes or
+describe those CuPyX filters as custom repository kernels.
 
 CuPyX filtering can perform well through generated elementwise kernels with
 explicit footprint indexing; do not infer shared-memory tiling, warp-specialized
@@ -435,6 +441,18 @@ Do not generalize the i5-11400H Gaussian result into “AVX-512 always wins” o
 assume a filter width maps directly to one SIMD vector. Do not require an
 equivalent CUDA ISA-control experiment when reproducing it would need custom
 kernel or code-generation work outside the bounded Canny question.
+
+Treat horizontal and vertical passes as distinct performance motifs on
+row-major arrays. Source-level output blocking does not establish packed SIMD
+across neighboring columns: the inspected blocked source lowered differently
+on Tiger Lake and Zen 3, and runtime tap counts selected discrete generated
+loop/remainder regimes on both. Thread count also changed relative strategy
+profitability in uncontrolled cross-run comparisons, so do not infer one
+scaling mechanism without a controlled study. The reviewed blocked convolution
+is the Canny project's practical stopping point unless a correctness defect or
+large regression appears. Deeper work on explicit SIMD, packing, layout
+normalization, or runtime strategy selection belongs to a separately scoped
+filtering/compiler study.
 
 The inspected NumPy `ndarray.max()` results are consistent with an efficient
 streaming reduction, not an obvious pathological primitive. A full-frame
