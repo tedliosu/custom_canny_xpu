@@ -48,6 +48,19 @@ def test_create_scipy_workspace() -> None:
     assert callable(workspace.ccl_callable)
 
 
+def test_create_scipy_workspace_accepts_single_pixel_shape() -> None:
+    """
+    Verify allocation accepts shapes below future operator-level constraints.
+
+    Returns:
+        None.
+    """
+    workspace = create_cpu_workspace((1, 1))
+
+    assert workspace.shape == (1, 1)
+    assert workspace.conv_scratch_n_nms_out.shape == (1, 1)
+
+
 def test_no_memory_aliasing_workspace() -> None:
     """
     Verify that creating two copies of the SciPy-backed CPU workspace does not
@@ -88,12 +101,15 @@ def test_no_memory_aliasing_workspace() -> None:
 @pytest.mark.parametrize(
     "shape",
     (
-        (2, 3),
-        (3, 2),
+        (0, 3),
+        (3, 0),
+        (-1, 3),
+        (3, -1),
         (3,),
         (3, 4, 5),
         (3.5, 4),
         (True, 4),
+        (4, True),
     ),
 )
 def test_create_cpu_workspace_rejects_invalid_shapes(shape: tuple) -> None:

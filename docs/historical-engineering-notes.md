@@ -87,6 +87,75 @@ and refined GPU versus alpha GPU differed by about four pixels out of roughly
 dataflow changed more than the high-level result, but they do not establish a
 general correctness tolerance or exact semantic equivalence.
 
+### Tiny-image constraint inspection
+
+On 2026-09-29, the latest external refined prototypes were identified from
+their filenames, modification times, and contents as
+`pseudo_cpu_canny_numpy_mod9_nms_conv_kern_hyccl_fused_grey_prealloc_bconv_ski_fp32.py`
+and
+`pseudo_gpu_canny_cupy_opt4_kern_nms_ccl_greyscl_fused_prealloc_ski_cucim_amd_cupy_fp32.py`.
+They remain external inspection sources, not integrated repository code.
+
+The CPU separable convolution uses an eight-output register-blocked vertical
+interior followed by a scalar tail. The block width does not impose an
+eight-pixel image-width minimum: a narrower image has no full block and is
+handled by the tail. The actual restriction comes from the horizontal and
+vertical border loops. The left/top input coordinates are clamped only at zero,
+and the right/bottom coordinates only at the final index. Their opposite border
+regions and index ranges are valid when the relevant dimension is at least
+twice the kernel radius. Equality is sufficient; the full odd kernel width is
+not required.
+
+For the active Gaussian settings, `radius = int(4.0 * 1.5 + 0.5) = 6`, so the
+custom CPU convolution requires height and width of at least 12. The radius-one
+Sobel passes independently require only 2. A 12-by-12 Gaussian result was
+checked against SciPy nearest-boundary filtering and agreed within roughly
+`1.2e-7` maximum absolute error. The CPU minimum should therefore be derived as
+`2 * max(1, gaussian_radius)` from the same radius calculation used to build
+the kernel. The old 3-by-3 statement was too weak for this implementation, and
+the convolution docstring's full-kernel-size claim was unnecessarily strict.
+The repository's initial workspace factory also enforced 3 by 3, but a
+workspace allocation has no `sigma` with which to enforce the operator
+requirement. That factory now accepts any positive 2D shape; the future public
+Canny boundary owns the active image/workspace compatibility check.
+
+The GPU stages have no corresponding footprint-derived minimum. RGB matrix
+multiplication, same-shaped workspaces, and CuPyX Gaussian and Sobel operations
+with nearest-boundary handling accommodate singleton axes. The custom CCL also
+has a valid one-pixel path by source inspection:
+
+- initialization writes background label 0 or foreground label 1;
+- the local-union kernel rejects all four neighbor candidates as out of bounds;
+- root compression either skips background or counts label 1 as the root at
+  flattened index 0; and
+- the keep-label kernel can write label index 1 into the two-element
+  `max_label + 1` table before `take` maps label 0 or 1.
+
+These conclusions are source-derived because no CUDA device was available for
+a runtime boundary test. They cover both the no-component early return and the
+one-component foreground path. The custom CCL and its one-pixel launches impose
+a nonempty 1-by-1 floor but no larger dimension constraint.
+
+Both prototypes also contain a separate NMS boundary defect that is not solved
+by any minimum dimension. Forward and backward bilinear coordinates clamp the
+left/down index only at the lower bound and the right/up index only at the upper
+bound. An exactly axis-aligned gradient pointing out through a right or bottom
+edge can leave the complementary coordinate one past the array. Running the
+CPU kernel's Python-level implementation on a crafted 3-by-3 horizontal
+gradient reproduced an out-of-bounds `IndexError`. During integration, clamp
+every NMS coordinate to both bounds in the CPU and GPU implementations before
+claiming their backend-specific minima. This is a correctness fix, not a reason
+to force the GPU to adopt the CPU convolution minimum.
+
+With that correction, the NMS kernels accept any nonempty dimensions,
+including 1 by 1: both coordinates of every sample clamp to zero on a singleton
+axis. The uncorrected external GPU NMS kernel is not independently safe for an
+arbitrary singleton-shaped magnitude/direction input. A complete 1-by-1 call is
+only source-expected to avoid the defect because nearest-boundary Sobel produces
+zero gradients and therefore zero NMS offsets. Treat 1 by 1 as the integrated,
+corrected GPU contract and require an actual device test rather than presenting
+the external prototype as already verified.
+
 ## CPU observations
 
 On a Ryzen 5700X-era system and a roughly 23.23 MP natural image, representative

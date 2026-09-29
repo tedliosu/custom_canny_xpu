@@ -18,9 +18,52 @@ grayscale array:
 - a NumPy `ndarray` for CPU execution; or
 - a CuPy `ndarray` for GPU execution.
 
-The array must have shape `[H, W]`, with `H >= 3` and `W >= 3`. Empty, color,
-channel-first, and batched arrays are rejected. RGB conversion is a separate
-operator rather than an implicit Canny stage.
+The array must have shape `[H, W]`. Empty, color, channel-first, and batched
+arrays are rejected. RGB conversion is a separate operator rather than an
+implicit Canny stage. Minimum nonempty dimensions are backend-specific because
+the initial CPU implementation retains the reviewed custom separable
+convolution while the GPU implementation uses library filters with different
+border machinery:
+
+- For CPU, let `radius = int(4.0 * sigma + 0.5)`. Both `H` and `W` must be at
+  least `2 * max(1, radius)`. The `1` accounts for the radius-one Sobel stage;
+  the Gaussian term applies when its radius is larger. At the reviewed
+  prototype setting `sigma=1.5`, the Gaussian radius is 6, so the minimum is
+  12 by 12.
+- For GPU, both `H` and `W` must be at least 1. CuPyX nearest-boundary Gaussian
+  and Sobel filters support singleton axes, and the remaining corrected custom
+  stages require a nonempty image but no larger fixed extent.
+
+The CPU requirement is twice the active maximum radius, not the odd kernel
+width and not the eight-output vertical register-block size. The custom
+convolution's scalar tail handles widths below eight, while its paired border
+regions assume each convolved dimension is at least twice the corresponding
+radius. Validate this requirement from the same radius calculation used to
+construct the Gaussian kernel rather than duplicating a fixed size. Backend
+resolution and dimension validation occur before workspace allocation or
+compiled/device execution where practical.
+
+The stage-derived dimension constraints are:
+
+- RGB-to-grayscale is a separate operator and accepts any nonempty height and
+  width.
+- The custom CPU Gaussian convolution requires each convolved dimension to be
+  at least twice its radius; a zero-radius/skipped Gaussian adds no restriction.
+  The custom radius-one CPU Sobel convolution requires at least 2 by 2.
+- CuPyX Gaussian and Sobel filtering with nearest-boundary semantics supports
+  singleton axes.
+- Corrected CPU and GPU NMS supports every nonempty shape. Clamping both
+  coordinates of each bilinear sample to both bounds maps every coordinate to
+  zero on a singleton axis.
+- SciPy CCL and the inspected custom GPU CCL support a single pixel and impose
+  no larger minimum. The optional cc3d binding must still be checked during its
+  separate integration, but the CPU convolution already imposes a minimum of
+  at least 2 by 2.
+- Workspace allocation supports any positive 2D shape. Zero-sized dimensions
+  are rejected before reductions, index arithmetic, or kernel launches.
+
+The backend-wide minimum is the maximum of its active stage requirements, not
+a dimension rule copied from another backend.
 
 The only accepted dtype is `float32`. Every value must be finite and in the
 closed interval `[0.0, 1.0]`. The public operator does not silently narrow
@@ -55,7 +98,10 @@ as described below. CPU CCL selection uses `ccl=None`, `"scipy"`, or `"cc3d"`;
   independent of whether integer input is accepted; they may be considered
   later only through a separate scope decision.
 - Gaussian, Sobel, and NMS neighborhood reads use nearest/clamped-boundary
-  semantics. There is no public border-mode parameter initially.
+  semantics. Every NMS sample coordinate must be clamped at both its lower and
+  upper bound; the external prototypes' one-sided coordinate clamps are a
+  known out-of-bounds defect to correct during integration. There is no public
+  border-mode parameter initially.
 
 The operator uses interpolation-based non-maximum suppression followed by the
 scikit-image-style CCL decomposition of double hysteresis: label the
@@ -108,6 +154,20 @@ the details of allocating compatible intermediate buffers and associating the
 workspace with its selected CPU CCL implementation. The exact buffer fields
 remain private implementation details and may preserve deliberate storage
 reuse where stage lifetimes do not overlap.
+
+`create_cpu_workspace` accepts any positive two-dimensional shape because it
+does not receive `sigma` and allocation itself has no convolution-radius
+minimum. Constructing a small workspace does not establish that the Canny
+operator can use it for a particular call.
+
+Every call first validates the image, parameters, backend, and required
+dimensions. The subsequent workspace path is explicit:
+
+- If `workspace is None`, the operator constructs a temporary compatible
+  workspace only after that validation.
+- If the caller supplies a workspace, the operator constructs nothing; it
+  validates that workspace's backend, shape/capacity, dtype, and CCL metadata
+  against the already validated call, then borrows it for execution.
 
 The `workspace` argument is optional. After validating the public arguments
 and resolving the backend, `canny` constructs an appropriate temporary
@@ -200,10 +260,15 @@ Native allocation and backend-execution failures, including out-of-memory
 errors, should retain their meaningful underlying exception rather than cause
 an automatic backend fallback.
 
+A minimum-dimension `ValueError` must state the received shape, selected
+backend, actual required height and width, and the stage or active radius that
+imposes the restriction. Do not report a backend-independent 3-by-3 rule.
+
 ## RGB-to-grayscale operator
 
 RGB conversion is a separate composable public operator. It accepts exactly a
-backend-native `[H, W, 3]` array and never transfers or mutates it.
+nonempty backend-native `[H, W, 3]` array with `H >= 1` and `W >= 1`, and never
+transfers or mutates it.
 
 The initial specialized paths are:
 
@@ -218,10 +283,14 @@ refined prototypes' simple matrix-vector formulation and avoids the alpha
 implementation's separately materialized channel products. `float64`, other
 integer dtypes, RGBA, channel-first, and batched inputs are initially rejected.
 
-The grayscale result must be valid input for the Canny operator. Do not add an
-unconditional full-image clipping pass merely as a precaution. Tests should
-first establish whether backend rounding can escape `[0.0, 1.0]`; add a
-correctness measure only if evidence requires it.
+The result is a backend-native `[H, W]` float32 array with the same nonempty
+spatial dimensions as the RGB input. The grayscale operator does not enforce
+Canny-specific dimension requirements. If a caller later passes that result to
+Canny, the Canny operator independently validates its backend- and
+sigma-dependent contract. Do not add an unconditional full-image clipping pass
+merely as a precaution. Tests should first establish whether backend rounding
+can escape `[0.0, 1.0]`; add a correctness measure only if evidence requires
+it.
 
 ## CPU CCL selection
 

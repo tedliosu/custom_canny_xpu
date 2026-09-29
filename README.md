@@ -414,15 +414,20 @@ when completing a parent item.
    Next add public validation and CPU dispatch, then complete the SciPy-default
    CPU implementation with the ordinary CPU stages and attributed hysteresis
    decomposition, keeping that decomposition separate from
-   repository-specific CCL helpers. Add root `main.py` as the application
-   boundary, and bring integrated functions under the documented docstring,
-   Pyright, lint, and paired-test rules. Finally, review and integrate the
-   optional cc3d binding as a separate change behind explicit selection and a
-   lazy optional-import boundary.
+   repository-specific CCL helpers. Derive the CPU minimum dimensions from the
+   active Gaussian and Sobel radii; at `sigma=1.5` the reviewed custom
+   convolution requires 12 by 12, not 3 by 3 or 13 by 13. Correct the external
+   prototype's one-sided NMS coordinate clamps during integration. Add root
+   `main.py` as the application boundary, and bring integrated functions under
+   the documented docstring, Pyright, lint, and paired-test rules. Finally,
+   review and integrate the optional cc3d binding as a separate change behind
+   explicit selection and a lazy optional-import boundary.
 2. Integrate the optional GPU implementation with graceful CPU-only import and
-   clear forced-GPU failure behavior. Record the exact upstream CuPy revision
-   for derived CCL code and add its attribution and license terms to
-   `THIRD_PARTY_NOTICES.md` in the same reviewed change.
+   clear forced-GPU failure behavior. Preserve its independently derived 1-by-1
+   minimum rather than copying the CPU convolution restriction, and correct the
+   same one-sided NMS coordinate-clamping defect during integration. Record the
+   exact upstream CuPy revision for derived CCL code and add its attribution and
+   license terms to `THIRD_PARTY_NOTICES.md` in the same reviewed change.
 3. Decide where alpha artifacts live and add them without erasing their
    historical architecture or allowing unsafe default image sizes.
 4. Add a CLI so image paths, Canny parameters, backend selection, references,
@@ -430,6 +435,10 @@ when completing a parent item.
    reference comparison and stage reporting orthogonal.
 5. Add a `pytest` suite for stage behavior, CPU/GPU agreement, reference
    disagreement, optional-dependency behavior, and representative error paths.
+   Cover each backend's minimum width and height, each minimum minus one,
+   non-square boundary cases, a normal image, and axis-aligned NMS gradients at
+   every border. Exercise the GPU singleton CCL path with both background and
+   foreground/strong-pixel cases when GPU tests become available.
 6. Establish dependency metadata, supported-version policy, and
    lint/type-check configuration for refined code. Decide separately how much
    checking applies to frozen alpha artifacts.

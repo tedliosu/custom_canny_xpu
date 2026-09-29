@@ -40,25 +40,38 @@ def create_cpu_workspace(
 ) -> CpuWorkspace:
     """
     Constructs the CPU scratch workspace used for the Canny operator
+
     Args:
-        shape: the size of each full image scratch array in the workspace
+        shape: positive two-dimensional size of each full-image scratch array
         ccl: CCL strategy used by the double hysteresis stage of Canny
     Returns:
         the CPU scratch workspace
+    Raises:
+        ValueError: if the shape or CCL strategy is invalid
+        RuntimeError: if an explicitly requested optional CCL is unavailable
     """
     if len(shape) != 2:
         raise ValueError(
             "Expected 2 dimensions for each scratch image array in workspace! "
             f"Got {len(shape)} dimensions instead!"
         )
-    if not isinstance(shape[0], int) or shape[0] <= 2:
+    # bool subclasses int, but True and False are not meaningful dimensions.
+    if (
+        not isinstance(shape[0], int)
+        or isinstance(shape[0], bool)
+        or shape[0] <= 0
+    ):
         raise ValueError(
-            "Expected at least 3 pixels of height for each scratch image array in workspace! "
+            "Expected a positive integer height for each scratch image array in workspace! "
             f"Got {shape[0]} pixels instead!"
         )
-    if not isinstance(shape[1], int) or shape[1] <= 2:
+    if (
+        not isinstance(shape[1], int)
+        or isinstance(shape[1], bool)
+        or shape[1] <= 0
+    ):
         raise ValueError(
-            "Expected at least 3 pixels of width for each scratch image array in workspace! "
+            "Expected a positive integer width for each scratch image array in workspace! "
             f"Got {shape[1]} pixels instead!"
         )
     resolved_strategy: CCLStrategy
