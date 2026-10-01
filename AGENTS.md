@@ -27,6 +27,46 @@ When completing a README roadmap item, inspect its details before removing it.
 Preserve separate deferred work, durable constraints, unresolved decisions,
 and non-goals in the appropriate section.
 
+## Documentation maintenance
+
+Treat documentation as maintained project state, not an append-only record.
+When implementation, semantics, benchmark baselines, optimization strategy,
+package organization, or provenance materially changes, inspect related files
+for transitively stale claims even if those lines were not directly touched.
+Update current-facing explanations, retain useful older evidence with an
+explicit historical label, and remove duplicated stale conclusions rather than
+silently rewriting old measurements as current results.
+
+Consider a focused documentation review when:
+
+1. an implementation change invalidates an existing explanation;
+2. changed baselines invalidate derived stage fractions, ratios, or timing
+   interpretations;
+3. one topic has accumulated substantial detail across several files;
+4. the README has become too specific for a project overview;
+5. later evidence changes the interpretation of an earlier observation;
+6. package or API organization no longer matches current documentation; or
+7. provenance review identifies another material contribution.
+
+This is a periodic coherence check after meaningful changes, not a mandate for
+cosmetic churn after every commit. Prefer the smallest edit that restores
+correctness and preserves useful history.
+
+Keep document roles distinct. The README owns overview, status, high-level
+methodology, baseline summary, roadmap, and concise disclosure. The operator
+contract owns public semantics and invariants. Thematic experiment docs own
+detailed measurements, compiler/profiler observations, and unresolved
+hypotheses. Historical notes own superseded prototype evidence.
+`docs/provenance-and-ai-assistance.md` owns the categorized AI-contribution
+inventory, while `THIRD_PARTY_NOTICES.md` owns required third-party attribution
+and license notices. Consolidate and cross-link instead of copying detailed
+findings into several locations.
+
+In benchmark writing, distinguish current reproducible evidence, historical
+observations, interpretation or inference, and unresolved hypotheses. Assembly
+or profiler evidence can establish observed behavior without proving one exact
+hardware bottleneck or universal worst case.
+
 ## Collaboration and learning model
 
 The maintainer owns architecture, semantics, interfaces, invariants, scope,
@@ -576,6 +616,12 @@ substantial generated code more closely for correctness
 and provenance. LLM disclosure does not substitute for source review,
 validation, or licensing analysis, and agents must not replace the
 maintainer's engineering judgment.
+
+Use `docs/provenance-and-ai-assistance.md` as the detailed categorized record
+of identified generated code, design and optimization ideas, benchmark work,
+maintainer constraints, and acceptance decisions. Its inventory is explicitly
+non-exhaustive; add material influence when recognized without implying that
+the list proves complete originality or license compliance.
 
 ## Scope boundaries
 

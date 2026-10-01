@@ -16,17 +16,10 @@ Unless otherwise stated, the figures below were reported in working notes on
 2026-09-19. Exact image, dependency, driver, compiler, runtime, warmup,
 allocation, and timing boundaries matter.
 
-## Provenance record
-
-The current double-hysteresis helper was adapted from scikit-image's CCL-based
-hysteresis implementation. The maintainer recalls consulting the then-current
-scikit-image main branch rather than a pinned release, and records show the
-resulting implementation in use by May 16, 2025. The exact upstream commit was
-not recorded and is no longer expected to be recoverable. Attribution should
-state this best-known source and uncertainty rather than assign a speculative
-release or commit. Later internal scikit-image changes do not retroactively
-establish the original source revision, even if the core logic remains
-substantially similar.
+Centralized third-party source and AI-assistance provenance lives in
+[`provenance-and-ai-assistance.md`](provenance-and-ai-assistance.md).
+Experiment-specific authorship notes remain here where they are necessary to
+interpret the historical evidence.
 
 ## Architecture evolution
 
