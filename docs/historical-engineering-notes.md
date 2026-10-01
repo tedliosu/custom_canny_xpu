@@ -253,18 +253,52 @@ outside this repository pending a separate decision about whether this reusable
 operator-class proxy merits inclusion.
 
 The suite samples streaming, regular local-neighborhood, and irregular
-connectivity workload classes; it does not predict full Canny exactly. If CPU
-stage-time fractions are used, a weighted harmonic combination is appropriate:
+connectivity workload classes; it does not predict full Canny exactly. The
+historical analysis used a weighted harmonic combination:
 
 ```text
 S_total ~= 1 / sum(f_i / S_i)
 ```
 
 Using an approximately 0.63 regular/local CPU share, 0.37 connectivity share,
-19.1x NMS-lite ratio, and 28.5x label ratio gives a coarse expectation near
-22x. The optimized operator was closer to the 30x class because the proxy does
-not model the actual blur/gradient filtering costs, materialization avoidance,
-the heavier specialized NMS path, or the complete custom hysteresis stage.
+19.1x NMS-lite ratio, and 28.5x label ratio gave approximately:
+
+```text
+S_proxy ~= 1 / (0.63 / 19.1 + 0.37 / 28.5) ~= 21.7x
+```
+
+This was informally compared with an approximately 30x observed operator ratio.
+That numerical relationship is now historical rather than current evidence.
+The CPU baseline later changed, particularly through vertical-convolution
+register blocking, so the old 0.63/0.37 stage weights no longer characterize
+the refined direction. The proxy also does not model the actual Gaussian
+footprint, Sobel and interpolation-NMS arithmetic, materialization choices,
+complete hysteresis preprocessing, or interaction among stages. Do not claim
+that it explains a fraction of current Canny speedup and do not use statistical
+language such as variance explained or `R^2` for this one comparison.
+
+Image dimensions and CCL content provide separate limitations. Fixed overhead,
+cache and working-set changes, CPU scaling, GPU occupancy, and memory behavior
+can change CPU/GPU ratios with size; do not repair a cross-size comparison by
+scaling timings with pixel count. At fixed dimensions, foreground density,
+component count and sizes, provisional equivalences, root chains, and
+compression or convergence behavior can make a synthetic label mask easier or
+harder than a real Canny workload. Random input is not an assumed worst case,
+one large component is not automatically difficult, and CPU and GPU CCL may
+respond differently to the same topology.
+
+The harmonic form itself remains useful when `f_i` is the current CPU
+baseline's time fraction and `S_i` is the currently measured class speedup. A
+future quantitative comparison should match:
+
+- CPU and GPU code revisions and the current CPU stage fractions;
+- dimensions, dtype, sigma or footprint, and relevant thresholds;
+- timing boundary and allocation/workspace policy; and
+- broad source-content and connectivity class.
+
+It should then measure current proxy ratios and actual Canny speedup under that
+setup and compare them descriptively. Such a comparison remains approximate
+and is not required for ordinary Canny benchmarking.
 
 The proxy's existing NMS-lite payload comment undercounts source-level logical
 accesses. Its kernel reads center, left, right, up, down, `gx`, and `gy`, then
@@ -275,10 +309,26 @@ coalescing, and reuse affect physical transfers. The proxy source remains an
 external context artifact rather than repository code.
 
 The later reduction and Gaussian-footprint experiments in
-`filtering-and-reduction-experiments.md` explain why this coarse estimate was
-reasonable but conservative. In particular, the proxy represented all regular
-and local work with a roughly 19.1x NMS-lite ratio, whereas an isolated 13-tap
-Gaussian showed a roughly 50x CPU/GPU ratio in one large RTX 5000 Ada test.
+`filtering-and-reduction-experiments.md` show why “regular/local” is not one
+homogeneous class: footprint, layout, cache reuse, compiler SIMD behavior, and
+device characteristics changed CPU/GPU ratios substantially. This reinforces
+using the proxy as an execution-motif probe rather than explaining the gap
+between its old 21.7x estimate and one full-operator result.
+
+If the proxy is refined, keep it small and inspectable rather than adding
+Gaussian, Sobel, interpolation NMS, Canny hysteresis preprocessing, internal
+artifact exchange, public validation, backend dispatch, or workspace logic. A
+lightweight option is to run both real Canny and the proxy on the same small
+deterministic family of source images, then derive the proxy label input with a
+trivial direct threshold. Smooth, sparse, fragmented/noise-like, dense
+connected, and late-merge patterns are possible choices, not a mandatory
+matrix. The proxy mask is only broad workload-shape alignment and is not
+expected to match Canny's post-NMS low-threshold mask.
+
+Before a material behavior change to the current external unversioned script,
+make one `.bakN` backup so the old measurements remain reconstructable. If a
+proxy is later admitted to this Git repository, preserve the original through
+version history rather than an in-repository backup file.
 
 ### Allocation and first touch
 

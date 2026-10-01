@@ -434,6 +434,17 @@ stage speedup. Report filter footprint as well as image size, and compare GPU
 platforms without assigning a difference to microarchitecture alone when
 generation, resource count, cache, memory, power, clocks, or software differ.
 
+Treat the copy/label/NMS-lite proxy as a coarse streaming, regular-local, and
+irregular-connectivity motif probe, not an exact Canny model. Its historical
+approximately 21.7x harmonic estimate used now-stale CPU stage fractions and
+must not be presented as current predictive evidence. The harmonic form
+`1 / sum(f_i / S_i)` remains valid only when its stage fractions and class
+speedups come from the matched baseline being discussed. Any future numerical
+comparison should match current revisions, dimensions, dtype, relevant
+parameters, timing and allocation boundaries, and broad content/connectivity
+class. Even then, describe the comparison as approximate and do not require it
+for ordinary Canny benchmarking.
+
 Treat CPU ISA-control results as workload- and compiler-specific evidence. An
 assembly change establishes that code generation changed, but not which exact
 instruction, loop transformation, or hardware resource caused a timing change.
@@ -519,7 +530,15 @@ documentation without turning this checkout into an informal experiment
 workspace. The compact copy/label/NMS-lite operator-class proxy is the only
 current candidate exception because it may serve as a reusable benchmark; add
 it only through a separate reviewed decision. Do not import other external
-proxy scripts merely because their results are documented here.
+proxy scripts merely because their results are documented here. Keep that
+proxy small and independent: do not duplicate Canny filtering, NMS,
+hysteresis preprocessing, validation, dispatch, workspaces, or orchestration
+to improve realism. A few deterministic source images may be shared with real
+Canny runs, with a trivial proxy-only threshold used to form approximate CCL
+workloads; the proxy mask need not reproduce a Canny intermediate. Before
+materially changing the current external unversioned script, preserve one
+`.bakN` copy. If a proxy is later version-controlled here, use Git history
+rather than adding backup files to the repository.
 
 ## Provenance and LLM assistance
 

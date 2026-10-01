@@ -425,13 +425,16 @@ belongs to the earlier source generation. The later blocked CPU results reduce
 the apparent Gaussian GPU ratio while preserving the conclusion that the GPU
 is much faster. Neither generation proves an exact architectural cause.
 
-The older operation-class proxy combined a roughly 19.1x NMS-lite ratio for
-regular/local work and a 28.5x labeling ratio into a coarse expectation near
-22x, versus an observed roughly 30x operator ratio. It remains useful, but its
-regular/local proxy did not model the actual blur and gradient filters. The
-13-tap Gaussian's roughly 50x isolated result helps explain why the coarse
-model was conservative. Separability itself is not the explanation: both
-reviewed CPU and GPU filtering paths already exploit separable structure.
+The older operator-class proxy combined a roughly 19.1x NMS-lite ratio and
+28.5x labeling ratio with then-current CPU stage weights into a historical
+approximately 21.7x harmonic estimate, which was compared with a roughly 30x
+operator result. Do not reuse that relationship as current evidence. Vertical
+register blocking changed the CPU baseline and its stage fractions; size and
+CCL topology also affect ratios; and the actual Gaussian, Sobel, NMS, and
+hysteresis workloads are not reproduced by the proxy. The proxy remains useful
+as a small streaming/local/connectivity motif probe, not a quantitative Canny
+predictor. Separability itself is not the explanation: both reviewed CPU and
+GPU filtering paths already exploit separable structure.
 
 ## Durable interpretation
 
@@ -450,6 +453,10 @@ reviewed CPU and GPU filtering paths already exploit separable structure.
 - The reviewed global blocked vertical implementation improved the real
   Gaussian stage without materially harming Sobel and is the bounded Canny
   stopping point rather than the start of a CPU strategy dispatcher.
+- The old proxy harmonic estimate used stale CPU weights and one simplified
+  label workload. Preserve it as history; any new numerical comparison must
+  use a matched current baseline, dimensions, timing boundary, and broad
+  content/connectivity class.
 - The mobile Ampere platform scaled very differently, so hardware and platform
   details must accompany GPU filtering claims.
 - Generated general-purpose CuPyX filter kernels can map regular stencil work

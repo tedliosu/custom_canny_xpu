@@ -410,7 +410,12 @@ not repository deliverables. Preserve durable results and caveats in the
 documentation while keeping their scripts external so this repository does
 not become an informal workspace. The compact copy/label/NMS-lite
 operator-class proxy is the sole current candidate for later inclusion as a
-reusable benchmark, subject to its own reviewed decision.
+reusable benchmark, subject to its own reviewed decision. Treat it as a small
+execution-motif probe, not a quantitative Canny predictor: its historical
+harmonic comparison uses stale CPU stage weights, and neither one image size
+nor one synthetic label topology represents current Canny generally. Any
+refinement should preserve its separation from the real operator and prefer a
+few shared deterministic source-image classes over recreating Canny stages.
 
 ## Roadmap
 
