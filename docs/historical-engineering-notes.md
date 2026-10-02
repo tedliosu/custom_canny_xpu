@@ -6,6 +6,14 @@ context, not reproducible benchmark results or current support guarantees.
 Regenerate important measurements from committed code under the README's
 benchmarking contract before citing them publicly.
 
+The refined CPU and GPU prototype observations in this document generally
+predate removal of per-image maximum-magnitude normalization. They remain
+historical evidence for those prototype generations, but they are not current
+performance, disagreement, stage-fraction, or cross-backend speedup evidence
+for the absolute-threshold operator. See
+[`benchmark-evidence-lifecycle.md`](benchmark-evidence-lifecycle.md) for the
+status definitions and selective revalidation procedure.
+
 The prototypes evolved throughout these experiments. In particular, not every
 alpha-versus-refined observation used fixed, rigorously controlled source
 snapshots. Unless a specific experiment says otherwise, treat all numbers and

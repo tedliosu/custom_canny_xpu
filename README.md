@@ -131,6 +131,9 @@ irregular connectivity remains hard.
   parameter-dependent memory risks and separates observations from estimates.
 - `docs/filtering-and-reduction-experiments.md` records the informal NumPy
   reduction and CPU/GPU Gaussian-footprint experiments and their limits.
+- `docs/benchmark-evidence-lifecycle.md` defines how measurements remain
+  current, become historical or pending, or are marked invalid as the project
+  evolves.
 - `docs/operator-contract.md` defines the reviewed initial public behavior that
   the refined implementation must satisfy.
 - `docs/provenance-and-ai-assistance.md` separates third-party algorithm
@@ -277,6 +280,24 @@ fixed, rigorously controlled source snapshots. Treat historical numbers and
 derived speedups as approximate unless a specific experiment records otherwise.
 
 ## Benchmarking contract
+
+Benchmark evidence belongs to a specific implementation generation, workload,
+environment, and experimental contract. Current, historical, pending
+revalidation, and invalid evidence are distinct: a sound superseded result
+remains useful history, while an uncertain current-facing claim should be
+marked pending rather than left misleadingly current. Revalidate selectively
+when a change can affect a result or its derived conclusions; do not rerun an
+independent experiment whose own contract is unchanged. The detailed status
+definitions and procedure are in
+[`docs/benchmark-evidence-lifecycle.md`](docs/benchmark-evidence-lifecycle.md).
+
+In particular, measurements from refined prototypes that still performed
+per-image magnitude normalization are not current evidence for the integrated
+absolute-threshold operator. Removing the reduction can also change threshold
+populations, CCL topology, output disagreement, stage fractions, and total
+timing, so new performance cannot be inferred by merely subtracting the old
+reduction cost. A current CPU/GPU speedup requires both backends to implement a
+comparable semantic generation.
 
 Performance results are meaningful only when their boundaries are stated.
 Record, as applicable:

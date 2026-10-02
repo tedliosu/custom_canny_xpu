@@ -433,6 +433,25 @@ code must synchronize at boundaries where completion is part of the assertion.
 
 ## Performance evidence rules
 
+Treat every benchmark result as evidence tied to an identified implementation
+generation, workload, environment, and experimental contract. Classify affected
+evidence as current, historical, pending revalidation, or invalid; these states
+are not interchangeable. A superseded but sound result is historical rather
+than erroneous, while a result compromised by a confirmed experimental defect
+is invalid rather than merely old.
+
+When semantics, algorithms, dataflow, allocation, synchronization, timing
+boundaries, workload parameters, dependencies, compilers, runtimes, hardware,
+or previously uncontrolled variables materially change, review only the
+measurements and derived conclusions that depend on that change. Mark uncertain
+current-facing claims pending, preserve useful historical context, and
+regenerate the minimum evidence needed before presenting a result as current.
+Recompute dependent speedups, stage fractions, and proxy estimates rather than
+carrying them across generations. Do not invalidate an independent experiment
+whose own contract is unchanged. The detailed status definitions and procedure
+live in
+[`docs/benchmark-evidence-lifecycle.md`](docs/benchmark-evidence-lifecycle.md).
+
 Treat historical timings as informal engineering context. Some
 alpha-versus-refined observations did not use fixed, rigorously controlled
 source snapshots, so their numbers and derived speedups are approximate.
