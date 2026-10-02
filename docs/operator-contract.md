@@ -340,10 +340,13 @@ included in a broader reference-comparison measurement.
 The selected lower-level primitive opportunity is this on-device disagreement
 count, conceptually a fused transform-reduction of
 `custom_output[i] != reference_output[i]`. A later execution-motif experiment
-may map it to one CUB or rocPRIM reduction call with reusable temporary
-storage. Do not retain the semantically unnecessary per-image magnitude
-normalization merely to preserve a reduction, and do not include reference
-comparison time in Canny-only measurements.
+may map it to one CUDA CUB or ROCm rocPRIM reduction call with reusable
+temporary storage. The separate execution-motif study compares GPU
+computational patterns by properties such as arithmetic intensity and
+memory-access regularity; it is not part of the Canny operator or a prerequisite
+for this repository. Do not retain the semantically unnecessary per-image
+magnitude normalization merely to preserve a reduction, and do not include
+reference-comparison time in Canny-only measurements.
 
 ## Deferred features
 

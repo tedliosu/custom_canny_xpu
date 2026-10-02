@@ -67,6 +67,31 @@ observations, interpretation or inference, and unresolved hypotheses. Assembly
 or profiler evidence can establish observed behavior without proving one exact
 hardware bottleneck or universal worst case.
 
+## Public-release readiness
+
+Public readiness is a bounded review state, not completion of the full README
+roadmap. Distinguish publishing an experimental source repository from making a
+stable packaged release or promising production support. A public repository
+may retain clearly labeled planned and experimental work, but every capability,
+limitation, dependency, benchmark claim, provenance record, and license notice
+for material actually present must be accurate.
+
+Before a public release, review the current tree and Git history for credentials,
+private paths, unintended artifacts, and references that require unavailable
+personal context. Review `LICENSE`, `THIRD_PARTY_NOTICES.md`, provenance and AI
+disclosures, installation instructions, dependency behavior, and current-facing
+evidence. Deleting a file from the working tree does not remove it from history;
+never rewrite or filter history without separate explicit maintainer approval.
+
+The proposed first useful publication milestone is a working, documented, and
+reasonably tested refined CPU operator, subject to maintainer review rather
+than a finalized release decision. GPU/ROCm completion, alpha integration,
+exhaustive benchmarks, batch/video work, proxy refinements, and separate GPU
+execution-motif research do not inherently block that milestone. Consult
+[`docs/publication-readiness.md`](docs/publication-readiness.md) for the detailed
+proposal, terminology, non-blockers, and review checklist. Do not add generic
+administrative files solely because the repository becomes public.
+
 ## Collaboration and learning model
 
 The maintainer owns architecture, semantics, interfaces, invariants, scope,
@@ -649,7 +674,7 @@ Do not turn this repository into:
 - a general benchmark or GPU framework;
 - a full replacement for SciPy, scikit-image, OpenCV, or an array library;
 - a broad ROCm environment/bootstrap project;
-- the repository for the larger MI300X-versus-H200 execution-motif study;
+- the repository for the separate cross-environment GPU execution-motif study;
 - an OpenVX or OpenCL demonstration project;
 - a generalized batch/video system before the single-image contract is ready;
   or

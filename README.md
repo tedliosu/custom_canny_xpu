@@ -12,12 +12,14 @@ dataflow, workspace reuse, dtype behavior, backend differences, NMS, and
 CCL-based hysteresis that a black-box call normally hides. It is not a general
 recommendation to rewrite Canny by hand.
 
-This is an early repository. The checkout currently contains initial package
-scaffolding, a reusable CPU workspace factory, a small NumPy/CuPy backend
-registry, and a connected-component-labeling (CCL) form of double hysteresis.
-The complete experimental CPU and GPU implementations still need to be
-integrated from reviewed prototypes. Nothing in this README should be read as
-a claim that the full operator or benchmark harness is already available here.
+This is an early experimental source repository, not a stable packaged release
+or production-supported product. The checkout currently contains initial
+package scaffolding, CPU input validation and workspace management, a small
+NumPy/CuPy backend registry, and a connected-component-labeling (CCL) form of
+double hysteresis. The complete CPU and GPU operators are not yet present.
+Design and experiment notes discuss development prototypes that live outside
+this checkout; those notes are historical context, not evidence that the code
+is installed or supported here.
 
 ## Project goals
 
@@ -79,6 +81,31 @@ Footprint, layout, compiler lowering, ISA, and thread count can therefore alter
 CPU ranking even for the same high-level operation. Detailed evidence lives in
 [`docs/filtering-and-reduction-experiments.md`](docs/filtering-and-reduction-experiments.md).
 
+## Related studies and terminology
+
+“Refined” identifies the maintainable CPU/GPU direction being integrated into
+the package; “alpha” identifies older, materialization-heavy implementations
+preserved only as historical learning artifacts. The optional cc3d work is an
+experimental custom binding to the external `connected-components-3d` project,
+while the compact copy/label/NMS-lite proxy is a small operator-class benchmark,
+not another Canny implementation. Neither is required for ordinary CPU use.
+
+A separate GPU execution-motif study compares representative computational
+patterns across GPU environments, including patterns distinguished by
+arithmetic intensity and memory-access regularity. Canny motivates some of
+those patterns: device-resident pixel-disagreement counting is a planned
+low-arithmetic-intensity, regular-access transform-reduction candidate for a
+later CUDA CUB or ROCm rocPRIM library experiment. That operation belongs to
+reference comparison, outside timed Canny execution. The broader motif taxonomy
+and cross-environment study are separate work and are not prerequisites for
+completing or publishing this repository.
+
+References to the separate ROCm cloud-bootstrap work mean environment bring-up
+and small CUDA/HIP portability experiments performed elsewhere. That work is
+not a dependency or a required part of this repository. More terminology and
+the bounded public-release proposal are in
+[`docs/publication-readiness.md`](docs/publication-readiness.md).
+
 ## Operator model
 
 The Canny operator accepts a two-dimensional float32 grayscale array and has
@@ -134,15 +161,18 @@ irregular connectivity remains hard.
 - `docs/benchmark-evidence-lifecycle.md` defines how measurements remain
   current, become historical or pending, or are marked invalid as the project
   evolves.
+- `docs/publication-readiness.md` explains related-work terminology and the
+  bounded proposal for an initial public experimental release.
 - `docs/operator-contract.md` defines the reviewed initial public behavior that
   the refined implementation must satisfy.
 - `docs/provenance-and-ai-assistance.md` separates third-party algorithm
   provenance, AI-assisted contributions, maintainer decisions, and known
   inventory limitations.
 - `src/custom_canny_xpu/` contains the initial importable package, CPU CCL
-  strategy boundary, and reusable `CpuWorkspace` factory.
-- `tests/` contains the initial package and CPU-workspace success and failure
-  tests.
+  strategy boundary, Canny input validation, and reusable `CpuWorkspace`
+  factory.
+- `tests/` contains initial package, validation, and CPU-workspace success and
+  failure tests.
 
 ## Package organization
 
@@ -221,7 +251,9 @@ templated traits together with the derived kernels rather than depend on
 `cuda::std` and version-sensitive HIP-internal traits. Record the exact CuPy
 source revision and update `THIRD_PARTY_NOTICES.md` when that code is
 integrated. This is a project-specific provenance and portability decision,
-not a policy for the separate ROCm bootstrap repository.
+not a policy for the separate ROCm cloud-bootstrap work used to test
+environment setup and small compatibility shims. That work is not required to
+use this repository.
 
 ### Historical alpha implementation
 
@@ -274,10 +306,11 @@ A few differing pixels between closely matched CPU/GPU implementations may be
 reasonable near floating-point, interpolation, or threshold boundaries. A
 general acceptance threshold has not yet been chosen and must be based on
 representative evidence rather than a convenient result. Historical
-measurements in private prototypes are engineering context, not repository
-guarantees. In particular, not every alpha-versus-refined observation used
-fixed, rigorously controlled source snapshots. Treat historical numbers and
-derived speedups as approximate unless a specific experiment records otherwise.
+measurements in development prototypes outside this checkout are engineering
+context, not repository guarantees. In particular, not every
+alpha-versus-refined observation used fixed, rigorously controlled source
+snapshots. Treat historical numbers and derived speedups as approximate unless
+a specific experiment records otherwise.
 
 ## Benchmarking contract
 
@@ -438,6 +471,23 @@ nor one synthetic label topology represents current Canny generally. Any
 refinement should preserve its separation from the real operator and prefer a
 few shared deterministic source-image classes over recreating Canny stages.
 
+## Publication status
+
+Making this repository public would publish an experimental project; it would
+not imply a stable API, completed roadmap, packaged release, or production
+support. The proposed first useful publication milestone is a working,
+documented, reasonably tested refined CPU operator with verified basic
+installation and execution instructions. This proposal remains subject to
+maintainer review and is not yet satisfied by the current scaffolding.
+
+Optional GPU backends, CUDA/ROCm validation, alpha integration, comprehensive
+benchmarking, batch/video support, proxy refinements, and the separate
+execution-motif study need not block publication. Licensing, attribution,
+provenance, accurate capability claims, and a review of both tracked content
+and Git history for unintended private material do remain mandatory for what is
+actually published. See
+[`docs/publication-readiness.md`](docs/publication-readiness.md).
+
 ## Roadmap
 
 This is the canonical high-level backlog. Keep separate future work visible
@@ -482,6 +532,10 @@ when completing a parent item.
    performance or speedup claims. Decide whether the compact
    copy/label/NMS-lite operator-class proxy merits inclusion as a reusable
    harness; keep the other narrow diagnostic scripts external.
+
+The full roadmap is not a public-release checklist. The proposed CPU-first
+publication milestone and its narrower review criteria are documented
+separately in [`docs/publication-readiness.md`](docs/publication-readiness.md).
 
 ## Provenance and LLM assistance
 
