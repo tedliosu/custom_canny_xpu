@@ -348,6 +348,15 @@ for this repository. Do not retain the semantically unnecessary per-image
 magnitude normalization merely to preserve a reduction, and do not include
 reference-comparison time in Canny-only measurements.
 
+Measuring the cost of correctness/reference validation itself is an
+intentionally deferred, separately scoped investigation. A future study may
+compare CPU and GPU validation cost while separating device-resident
+computation from transfer and reference-setup overhead, but only when a
+concrete validation-cost question and comparable implementations justify the
+work. It is not part of the core benchmark contract, an implementation
+requirement, or a prerequisite for publication or the proposed ROCm
+presentation.
+
 ## Deferred features
 
 The initial contract does not include masks, quantile thresholds, alternative

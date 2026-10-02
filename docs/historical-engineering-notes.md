@@ -690,11 +690,17 @@ research project.
 
 The operator may be used as one low-arithmetic-intensity case with mostly
 regular access patterns over pixel data in a broader GPU execution-motif study
-or a short ROCm presentation. That separate study compares representative GPU
-workloads by characteristics such as arithmetic intensity and memory-access
-regularity; it is not part of this repository. Those projects remain separate.
-A concise presentation should favor scikit-image, the refined CPU operator,
-and the refined GPU operator, with OpenCV and cuCIM/hipCIM as optional context.
-The central audience messages are “throughput, not magic,” “workload shape
-matters,” and “regular access patterns of pixel data fly; irregular
-connectivity remains hard.”
+or the separately scoped proposed ROCm presentation. The execution-motif study
+compares representative GPU workloads by characteristics such as arithmetic
+intensity and memory-access regularity; it is not part of this repository.
+Those projects remain separate. The current presentation purpose, audience,
+status, and demonstration boundaries are maintained in
+[`proposed-rocm-presentation.md`](proposed-rocm-presentation.md) rather than in
+these historical benchmark notes.
+
+Earlier, non-final presentation planning suggested centering scikit-image and
+the refined CPU/GPU operators, with OpenCV and cuCIM/hipCIM as optional
+context. Its proposed audience messages were “throughput, not magic,” “workload
+shape matters,” and “regular access patterns of pixel data fly; irregular
+connectivity remains hard.” Preserve these as preliminary ideas rather than a
+finalized outline.

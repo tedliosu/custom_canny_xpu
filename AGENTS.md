@@ -62,6 +62,14 @@ inventory, while `THIRD_PARTY_NOTICES.md` owns required third-party attribution
 and license notices. Consolidate and cross-link instead of copying detailed
 findings into several locations.
 
+Record consequential decisions, unresolved questions, scope boundaries, and
+the conditions that should trigger reconsideration in the repository near the
+subject they govern. Keep those records concise and discoverable so future work
+does not depend on chat history or agent context. Do not preserve conversation
+transcripts or create parallel planning documents for that purpose; update or
+retire obsolete planning language when a decision is implemented or
+superseded.
+
 In benchmark writing, distinguish current reproducible evidence, historical
 observations, interpretation or inference, and unresolved hypotheses. Assembly
 or profiler evidence can establish observed behavior without proving one exact
@@ -83,14 +91,22 @@ disclosures, installation instructions, dependency behavior, and current-facing
 evidence. Deleting a file from the working tree does not remove it from history;
 never rewrite or filter history without separate explicit maintainer approval.
 
-The proposed first useful publication milestone is a working, documented, and
-reasonably tested refined CPU operator, subject to maintainer review rather
-than a finalized release decision. GPU/ROCm completion, alpha integration,
-exhaustive benchmarks, batch/video work, proxy refinements, and separate GPU
-execution-motif research do not inherently block that milestone. Consult
-[`docs/publication-readiness.md`](docs/publication-readiness.md) for the detailed
-proposal, terminology, non-blockers, and review checklist. Do not add generic
-administrative files solely because the repository becomes public.
+The approved preferred publication milestone is a working, documented, and
+reasonably tested refined CPU operator. If the proposed autumn 2026 Ohio State
+Open Source Club ROCm presentation is scheduled before that milestone can
+reasonably be completed, the approved alternative is publication by
+presentation day as a clearly labeled experimental work in progress. In that
+case, prioritize a validated and accurately described presentation
+demonstration rather than rushing unfinished prototype code into the package.
+Neither path waives licensing, provenance, credential, or other publication-
+safety review. GPU/ROCm package completion, alpha integration, exhaustive
+benchmarks, batch/video work, proxy refinements, and separate GPU
+execution-motif research do not inherently block publication. Consult
+[`docs/publication-readiness.md`](docs/publication-readiness.md) for the paths,
+non-blockers, and review checklist, and
+[`docs/proposed-rocm-presentation.md`](docs/proposed-rocm-presentation.md) for
+the presentation's purpose and boundaries. Do not add generic administrative
+files solely because the repository becomes public.
 
 ## Collaboration and learning model
 

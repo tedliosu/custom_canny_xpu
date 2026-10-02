@@ -5,9 +5,9 @@ project. Public availability is not the same promise as a stable packaged
 release or a production-supported software product, and it does not require
 completion of the full README roadmap.
 
-This document defines a bounded publication proposal and review checklist. It
-does not declare that the current checkout is ready, set a release date, or
-authorize destructive cleanup.
+This document defines the approved publication paths and bounded review
+checklist. It does not declare that the current checkout is ready, set a release
+date, or authorize destructive cleanup.
 
 ## Release levels
 
@@ -59,15 +59,14 @@ output exists and must remain outside Canny-only timing. Completing that
 experiment or the wider motif taxonomy is not a condition for publishing this
 repository.
 
-## Proposed first public milestone
+## Preferred CPU-first milestone
 
-The preferred candidate is a working, documented, and reasonably tested
-refined CPU Canny implementation. It would give an external reader a concrete
-operator to install, execute, inspect, and learn from without requiring a GPU.
-This is a proposal for maintainer review, not a previously finalized release
-decision.
+The approved preferred normal target is a working, documented, and reasonably
+tested refined CPU Canny implementation. It would give an external reader a
+concrete operator to install, execute, inspect, and learn from without requiring
+a GPU.
 
-Suggested minimum criteria are:
+Its minimum criteria are:
 
 1. The documented refined CPU Canny API works under the stated contract.
 2. Basic CPU dependency installation and an execution example have been
@@ -87,15 +86,36 @@ Suggested minimum criteria are:
    unintended private information, machine-specific paths, generated artifacts,
    and other material not intended for publication.
 
-The current checkout remains earlier than this proposed milestone: the complete
+The current checkout remains earlier than this milestone: the complete
 CPU operator, supported dependency metadata, and verified installation/use
-instructions are not yet present. An earlier work-in-progress publication is
-possible if clearly labeled, but it gives readers less executable value and
-requires especially careful status wording.
+instructions are not yet present.
+
+## Conditional presentation path
+
+The proposed autumn 2026 Ohio State Open Source Club ROCm presentation has no
+confirmed date. If it is scheduled before the CPU-first milestone can
+reasonably be completed, the approved alternative is to make this repository
+public no later than presentation day as a clearly labeled experimental work
+in progress.
+
+Under that path, prioritize preparing and validating the actual demonstration
+instead of rushing incomplete functionality into `src/custom_canny_xpu`. The
+demonstration may use separately maintained, bug-fixed CPU/GPU prototype
+scripts, including scripts not yet integrated into this package. Documentation
+must identify them as external experimental prototypes rather than installed
+repository functionality and must distinguish their evidence from results
+reproduced from committed code.
+
+The presentation deadline does not waive the review below. A material license,
+attribution, provenance, credential, privacy, or other publication-safety
+blocker must be escalated to the maintainer. Do not publish unsafe material or
+perform destructive cleanup without separate approval. The presentation's
+purpose, audience, environment history, and scope boundaries are recorded in
+[`proposed-rocm-presentation.md`](proposed-rocm-presentation.md).
 
 ## Non-blocking future work
 
-The proposed initial publication does not require:
+Neither publication path requires:
 
 - the optional refined GPU implementation;
 - complete CUDA or ROCm validation;
