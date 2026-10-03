@@ -100,11 +100,12 @@ in progress.
 
 Under that path, prioritize preparing and validating the actual demonstration
 instead of rushing incomplete functionality into `src/custom_canny_xpu`. The
-demonstration may use separately maintained, bug-fixed CPU/GPU prototype
-scripts, including scripts not yet integrated into this package. Documentation
-must identify them as external experimental prototypes rather than installed
-repository functionality and must distinguish their evidence from results
-reproduced from committed code.
+demonstration may use a separately maintained AMD RPP host/device experiment
+if it first passes its own feasibility and correctness smoke test, or bug-fixed
+CPU/GPU prototype scripts that are not yet integrated into this package.
+Documentation must identify either route as external experimental work rather
+than installed repository functionality and must distinguish its evidence from
+results reproduced from committed code.
 
 The presentation deadline does not waive the review below. A material license,
 attribution, provenance, credential, privacy, or other publication-safety

@@ -600,6 +600,33 @@ categories:
 - `cupyx.scipy.ndimage` provides lower-level operations such as Sobel, not a
   complete Canny operator.
 
+Vendor-native primitive libraries form another relevant prior-art category.
+[NVIDIA NPP](https://docs.nvidia.com/cuda/archive/13.2.1/npp/) and the standalone
+modern C++
+[NPP_Plus](https://docs.nvidia.com/cuda/archive/13.2.1/nppplus/) provide
+CUDA-oriented image filtering and Canny functionality. The CUDA 13.2.1
+[NPP Canny documentation](https://docs.nvidia.com/cuda/archive/13.2.1/npp/image_filtering_functions.html)
+describes a single-channel 8-bit grayscale input, an 8-bit 0/255 edge output,
+and caller-provided scratch storage. [AMD ROCm Performance Primitives
+(RPP)](https://rocm.docs.amd.com/projects/rpp/en/docs-7.2.3/) provides host and
+GPU computer-vision operations; its [documented RPPI
+interface](https://rocm.docs.amd.com/projects/rpp/en/docs-7.2.3/doxygen/html/rppi__computer__vision_8h.html)
+includes batched 8-bit Canny entry points for both host and GPU execution. The
+links intentionally pin ROCm 7.2.3, the current AMD Developer Cloud bootstrap
+target, and CUDA 13.2.1 as a roughly contemporaneous CUDA documentation
+snapshot.
+
+These libraries may inform API, implementation, workspace, or comparison
+questions, but their existence does not displace this repository's narrower
+study of Python-accessible ndarray operators, reusable workspaces,
+backend-appropriate implementation, portability, and execution behavior.
+Neither library has been established as a semantically equivalent drop-in for
+the FP32, absolute-threshold, scikit-image-inspired contract. NPP/NPP Plus and
+RPP are therefore not required dependencies, implemented backends, mandatory
+benchmark baselines, or publication prerequisites. Any future measurement must
+preserve its own dtype, residency, transfer, allocation, batching, and semantic
+boundaries rather than being merged directly with custom-operator evidence.
+
 Relevant primary project pages include the
 [cuCIM API index](https://docs.rapids.ai/api/cucim/legacy/genindex/),
 [official hipCIM repository](https://github.com/ROCm-LS/hipCIM),
@@ -608,8 +635,8 @@ Relevant primary project pages include the
 [CuPy 14.0.1 Sobel API](https://docs.cupy.dev/en/v14.0.1/reference/generated/cupyx.scipy.ndimage.sobel.html),
 and the [cupyimg repository](https://github.com/mritools/cupyimg). No analogous
 CPU ecosystem survey was performed, intentionally: scikit-image is already the
-selected semantic reference for the specialized custom contract, and this
-documentation update does not open a separate CPU-baseline search.
+selected semantic reference for the specialized custom contract, and recording
+RPP's host API as prior art does not open a separate CPU-baseline search.
 
 In one roughly 122.99 MP fp32 grayscale CUDA comparison, cuCIM took about
 40.1 ms and the custom implementation about 35.0 ms. The roughly 14–15%

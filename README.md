@@ -14,12 +14,13 @@ recommendation to rewrite Canny by hand.
 
 This is an early experimental source repository, not a stable packaged release
 or production-supported product. The checkout currently contains initial
-package scaffolding, CPU input validation and workspace management, a small
-NumPy/CuPy backend registry, and a connected-component-labeling (CCL) form of
-double hysteresis. The complete CPU and GPU operators are not yet present.
-Design and experiment notes discuss development prototypes that live outside
-this checkout; those notes are historical context, not evidence that the code
-is installed or supported here.
+package scaffolding, public-boundary validation and one-time CPU dispatch,
+CPU workspace management, a small NumPy/CuPy backend registry, and a
+connected-component-labeling (CCL) form of double hysteresis. The CPU numerical
+stages are not yet integrated, and the complete GPU operator is not yet
+present. Design and experiment notes discuss development prototypes that live
+outside this checkout; those notes are historical context, not evidence that
+the code is installed or supported here.
 
 ## Project goals
 
@@ -175,10 +176,11 @@ irregular connectivity remains hard.
   provenance, AI-assisted contributions, maintainer decisions, and known
   inventory limitations.
 - `src/custom_canny_xpu/` contains the initial importable package, CPU CCL
-  strategy boundary, Canny input validation, and reusable `CpuWorkspace`
-  factory.
-- `tests/` contains initial package, validation, and CPU-workspace success and
-  failure tests.
+  strategy boundary, Canny input validation and CPU dispatch, and reusable
+  `CpuWorkspace` factory. The numerical executor is still an explicit
+  placeholder, and `canny` is not yet exported as a working public operator.
+- `tests/` contains package, API validation/dispatch, and CPU-workspace success
+  and failure tests.
 
 ## Package organization
 
@@ -399,6 +401,7 @@ Useful baselines serve different purposes:
 - the refined NumPy/Numba/SciPy implementation: tuned scientific Python CPU;
 - the refined CuPy/CuPyX implementation: custom CUDA/ROCm GPU;
 - cuCIM/hipCIM: directly interoperable GPU-library context where available;
+- NVIDIA NPP/NPP Plus and AMD RPP: vendor-native image-processing prior art;
 - OpenCV: mature production-native context, not a required semantic match.
 
 cuCIM is the primary serious CUDA library baseline because it accepts CuPy
@@ -414,6 +417,14 @@ globally fastest. OpenCV CUDA uses its own `GpuMat` interface, while Kornia is
 PyTorch Tensor based, so they remain useful context in different
 interoperability categories. No analogous CPU ecosystem survey was performed;
 scikit-image remains the deliberately selected CPU semantic reference.
+
+NPP/NPP Plus and RPP expose relevant filtering and Canny-related native-library
+functionality, but they have not been established as direct ndarray interfaces
+or semantic drop-in matches for this project's FP32, scikit-image-inspired
+contract. They remain useful prior art rather than required dependencies,
+implemented backends, mandatory benchmark baselines, or publication
+prerequisites. More detailed API context is preserved in the historical
+engineering notes.
 
 Detailed internal stage timing is primarily for code owned by this repository.
 For third-party references, prefer public timing boundaries such as the whole
@@ -489,11 +500,11 @@ current scaffolding.
 There is one conditional alternative. If the proposed autumn 2026 Ohio State
 Open Source Club ROCm presentation is scheduled before the CPU-first milestone
 can reasonably be completed, publish by presentation day as a clearly labeled
-experimental work in progress. The demonstration may use separately maintained,
-bug-fixed CPU/GPU prototype scripts that are not packaged here, provided their
-status and relationship to the checkout are explicit. The deadline should not
-cause incomplete functionality to be rushed into `src/custom_canny_xpu`, and it
-does not waive publication-safety review.
+experimental work in progress. The demonstration may use a separately
+validated AMD RPP experiment or bug-fixed CPU/GPU prototype scripts that are
+not packaged here, provided their status and relationship to the checkout are
+explicit. The deadline should not cause incomplete functionality to be rushed
+into `src/custom_canny_xpu`, and it does not waive publication-safety review.
 
 Optional GPU backends, CUDA/ROCm validation, alpha integration, comprehensive
 benchmarking, batch/video support, proxy refinements, and the separate

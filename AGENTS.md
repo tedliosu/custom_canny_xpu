@@ -716,6 +716,12 @@ Do not turn this repository into:
 OpenCV is useful mature implementation context, not an optimization mandate.
 cuCIM/hipCIM is a useful directly interoperable GPU reference where available.
 Kornia may be useful PyTorch-native context but need not be a primary baseline.
+NVIDIA NPP/NPP Plus and AMD RPP are relevant vendor-native prior art, not
+required dependencies, implemented backends, mandatory baselines, or
+publication prerequisites. Keep any standalone RPP presentation experiment
+outside this package unless a later explicit scope decision approves
+integration.
+
 For ordinary usage, prefer mature libraries when they meet the required
 semantics and deployment constraints. The custom operator exists to study the
 operator stack, not to recommend hand-written Canny as the default production

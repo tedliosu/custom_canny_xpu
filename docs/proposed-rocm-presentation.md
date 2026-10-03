@@ -50,8 +50,8 @@ Any presentation material must distinguish:
 
 - historical observations from measurements validated against an identified
   current revision;
-- functionality installed from `src/custom_canny_xpu` from separately
-  maintained experimental scripts;
+- packaged functionality under `src/custom_canny_xpu` from functionality in
+  separately maintained experimental scripts;
 - demonstrated behavior from planned work; and
 - Canny-only timing from reference comparison, transfers, and other timing
   boundaries.
@@ -59,6 +59,31 @@ Any presentation material must distinguish:
 If necessary, the demonstration may use bug-fixed CPU/GPU prototype scripts
 that remain external to this package. Their use must be disclosed accurately;
 it does not make them packaged functionality or current repository evidence.
+
+### Candidate standalone RPP demonstration
+
+One tentative demonstration direction is a standalone host/device Canny
+example using AMD ROCm Performance Primitives (RPP) on the AMD Developer Cloud
+MI300X environment. This is a candidate, not the selected presentation plan.
+It must first pass a separately scoped feasibility and correctness smoke test.
+Initial exploration belongs in a separate development session outside this
+repository so presentation preparation does not become coupled to package
+integration.
+
+If the experiment succeeds, the presentation may use RPP while
+`custom_canny_xpu` remains a distinct experimental ndarray-based operator
+study. If it fails or proves unsuitable, the separately maintained, validated
+CPU/GPU Canny prototypes remain possible alternatives. Neither outcome makes
+RPP an implemented package backend or requires its experiment to be imported
+into this checkout.
+
+The RPP demonstration would own its own implementation contract and benchmark
+evidence. Host and GPU RPP paths must not be assumed to have identical
+algorithms, optimization, or threading behavior, and their measurements are
+not interchangeable with this project's results without checking semantics,
+dtype, residency, transfer and allocation boundaries, batching, and timing
+scope. Selecting or rejecting this candidate does not start the separately
+deferred validation-cost investigation.
 
 ## Scope and publication relationship
 
@@ -72,6 +97,7 @@ and checklist.
 
 Preparing the presentation does not require completion of the refined GPU
 package, the broader GPU execution-motif study, the separate ROCm bootstrap
-work, or every planned benchmark. The optional validation-cost investigation
-described in [`operator-contract.md`](operator-contract.md#reference-disagreement)
-is likewise neither presentation work nor a publication prerequisite.
+work, integration of an RPP demonstration, or every planned benchmark. The
+optional validation-cost investigation described in
+[`operator-contract.md`](operator-contract.md#reference-disagreement) is
+likewise neither presentation work nor a publication prerequisite.
