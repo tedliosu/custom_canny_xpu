@@ -48,7 +48,8 @@ def _validate_cpu_canny_image(image: Any, gaussian_radius: int) -> None:
         TypeError: if image is not a NumPy ndarray with float32 dtype
         ValueError: if image has an invalid shape, dimensions, or pixel values
     """
-    required_any_dim_size = 2 * max(1, gaussian_radius)
+    active_max_radius = max(1, gaussian_radius)
+    required_any_dim_size = 2 * active_max_radius
     expected_msg_error_str = (
         "Expected a 2D NumPy float32 ndarray for image where all "
         + "values in said array are between 0.0 and 1.0 inclusive, "
@@ -81,17 +82,16 @@ def _validate_cpu_canny_image(image: Any, gaussian_radius: int) -> None:
             "ERROR: got a 2D float32 image where not all of the values "
             "are between 0.0 and 1.0 inclusive! " + expected_msg_error_str
         )
-    if image.shape[0] < required_any_dim_size:
+    if (
+        image.shape[0] < required_any_dim_size
+        or image.shape[1] < required_any_dim_size
+    ):
         raise ValueError(
-            "ERROR: got a 2D float32 image where all values are between "
-            f"0.0 and 1.0 inclusive, but image height is {image.shape[0]}! "
-            + expected_msg_error_str
-        )
-    if image.shape[1] < required_any_dim_size:
-        raise ValueError(
-            "ERROR: got a 2D float32 image where all values are between "
-            f"0.0 and 1.0 inclusive, but image width is {image.shape[1]}! "
-            + expected_msg_error_str
+            "CPU Canny requires height and width of at least "
+            f"{required_any_dim_size} pixels (minimum shape "
+            f"({required_any_dim_size}, {required_any_dim_size})) because "
+            "custom convolution border handling uses an active maximum "
+            f"radius of {active_max_radius}; received shape {image.shape}!"
         )
 
 

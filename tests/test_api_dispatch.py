@@ -275,7 +275,7 @@ def test_canny_rejects_invalid_image_before_workspace_allocation(
 
     monkeypatch.setattr(_cpu, "create_cpu_workspace", fail_if_workspace_is_created)
 
-    with pytest.raises(ValueError, match="height is 11"):
+    with pytest.raises(ValueError, match=r"received shape \(11, 12\)"):
         _api.canny(image)
 
 

@@ -183,12 +183,60 @@ def test_valid_cpu_canny_images_acceptance(
         ([[0.0, 0.0], [0.0, 0.0]], 0.0, TypeError, "NumPy or CuPy"),
         (npy.zeros((2, 2), dtype=npy.float64), 0.0, TypeError, "float64"),
         (npy.zeros((2, 2, 1), dtype=npy.float32), 0.0, ValueError, "3 dimensions"),
-        (npy.zeros((0, 12), dtype=npy.float32), 1.5, ValueError, "height is 0"),
-        (npy.zeros((12, 0), dtype=npy.float32), 1.5, ValueError, "width is 0"),
-        (npy.zeros((1, 2), dtype=npy.float32), 0.0, ValueError, "height is 1"),
-        (npy.zeros((2, 1), dtype=npy.float32), 0.0, ValueError, "width is 1"),
-        (npy.zeros((11, 12), dtype=npy.float32), 1.5, ValueError, "height is 11"),
-        (npy.zeros((12, 11), dtype=npy.float32), 1.5, ValueError, "width is 11"),
+        (
+            npy.zeros((0, 12), dtype=npy.float32),
+            1.5,
+            ValueError,
+            (
+                r"CPU Canny requires.*minimum shape \(12, 12\).*"
+                r"active maximum radius of 6; received shape \(0, 12\)"
+            ),
+        ),
+        (
+            npy.zeros((12, 0), dtype=npy.float32),
+            1.5,
+            ValueError,
+            (
+                r"CPU Canny requires.*minimum shape \(12, 12\).*"
+                r"active maximum radius of 6; received shape \(12, 0\)"
+            ),
+        ),
+        (
+            npy.zeros((1, 2), dtype=npy.float32),
+            0.0,
+            ValueError,
+            (
+                r"CPU Canny requires.*minimum shape \(2, 2\).*"
+                r"active maximum radius of 1; received shape \(1, 2\)"
+            ),
+        ),
+        (
+            npy.zeros((2, 1), dtype=npy.float32),
+            0.0,
+            ValueError,
+            (
+                r"CPU Canny requires.*minimum shape \(2, 2\).*"
+                r"active maximum radius of 1; received shape \(2, 1\)"
+            ),
+        ),
+        (
+            npy.zeros((11, 12), dtype=npy.float32),
+            1.5,
+            ValueError,
+            (
+                r"CPU Canny requires.*minimum shape \(12, 12\).*"
+                r"active maximum radius of 6; received shape \(11, 12\)"
+            ),
+        ),
+        (
+            npy.zeros((12, 11), dtype=npy.float32),
+            1.5,
+            ValueError,
+            (
+                r"CPU Canny requires.*minimum shape \(12, 12\).*"
+                r"active maximum radius of 6; received shape \(12, 11\)"
+            ),
+        ),
     ],
 )
 def test_invalid_cpu_canny_image_structure_rejection(
