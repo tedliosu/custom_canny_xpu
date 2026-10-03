@@ -2,14 +2,49 @@
 Unit tests for checking if inputs are validated correctly by the API exposed by
     'custom_canny_xpu' module
 """
-# Private helpers are tested directly until public canny validation is available.
+# Gaussian radius remains a focused private-policy test because public
+# truncation is fixed at 4.0. Reassess it if radius policy becomes public or
+# moves behind a separately tested parameter-policy boundary.
 # pylint: disable=protected-access
 
-import numpy as npy
-import pytest
+from typing import Any, cast
 
-from custom_canny_xpu import _api
-from custom_canny_xpu._cpu import Float32Array2D
+import numpy as npy
+
+# Pyright environment discovery misses the installed pytest package.
+import pytest  # pyright: ignore[reportMissingImports]
+
+from custom_canny_xpu import _api, _cpu
+from custom_canny_xpu._cpu import BoolArray2D, Float32Array2D
+
+
+@pytest.fixture(name="stub_cpu_executor")
+def _stub_cpu_executor_fixture(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Replace unfinished CPU numerical execution with a deterministic edge map.
+
+    Args:
+        monkeypatch: pytest helper used to replace the unfinished executor
+    Returns:
+        None.
+    """
+    def execute_cpu_canny(
+        image: Float32Array2D, *args: Any, **kwargs: Any
+    ) -> BoolArray2D:
+        """
+        Return an all-false edge map after public validation succeeds.
+
+        Args:
+            image: validated CPU image
+            args: remaining validated numerical arguments
+            kwargs: prepared workspace keyword argument
+        Returns:
+            all-false Boolean edge map matching image shape
+        """
+        _ = (args, kwargs)
+        return cast(BoolArray2D, npy.zeros_like(image, dtype=npy.bool_))
+
+    monkeypatch.setattr(_cpu, "_execute_cpu_canny", execute_cpu_canny)
 
 
 @pytest.mark.parametrize(
@@ -45,7 +80,10 @@ def test_gaussian_radius_calculation_policy(
     [(0.0, 0.0, 1.0), (1.5, 0.1, 0.2), (2.0, 0.2, 0.2)],
 )
 def test_valid_shared_canny_args_acceptance(
-    sigma: float, low_threshold: float, high_threshold: float
+    sigma: float,
+    low_threshold: float,
+    high_threshold: float,
+    stub_cpu_executor: None,
 ) -> None:
     """
     Verify that the shared canny arguments validation is correct
@@ -53,10 +91,19 @@ def test_valid_shared_canny_args_acceptance(
         sigma: size of each standard deviation of the gaussian kernel used for blurring for Canny
         low_threshold: floating point min abs pix val of what counts as a weak edge
         high_threshold: floating point min abs pix val of what counts as a strong edge
+        stub_cpu_executor: fixture replacing unfinished CPU numerical execution
     Returns:
         None.
     """
-    _api._validate_shared_canny_args(sigma, low_threshold, high_threshold)
+    _ = stub_cpu_executor
+    image = npy.zeros((16, 16), dtype=npy.float32)
+
+    _api.canny(
+        image,
+        sigma=sigma,
+        low_threshold=low_threshold,
+        high_threshold=high_threshold,
+    )
 
 
 @pytest.mark.parametrize(
@@ -91,53 +138,62 @@ def test_invalid_shared_canny_args_rejection(
     Returns:
         None.
     """
+    image = npy.zeros((16, 16), dtype=npy.float32)
+
     with pytest.raises(expected_exception, match=message):
-        _api._validate_shared_canny_args(sigma, low_threshold, high_threshold)
+        _api.canny(
+            image,
+            sigma=sigma,
+            low_threshold=low_threshold,
+            high_threshold=high_threshold,
+        )
 
 
 @pytest.mark.parametrize(
-    "shape, gaussian_radius",
+    "shape, sigma",
     [
-        ((2, 2), 0),
-        ((12, 12), 6),
-        ((12, 17), 6),
-        ((24, 32), 6),
+        ((2, 2), 0.0),
+        ((12, 12), 1.5),
+        ((12, 17), 1.5),
+        ((24, 32), 1.5),
     ],
 )
 def test_valid_cpu_canny_images_acceptance(
-    shape: tuple[int, int], gaussian_radius: int
+    shape: tuple[int, int], sigma: float, stub_cpu_executor: None
 ) -> None:
     """
     Verify that valid boundary and non-square CPU images are accepted.
 
     Args:
         shape: height and width of the generated valid image
-        gaussian_radius: radius determining the minimum supported dimensions
+        sigma: Gaussian standard deviation determining the minimum dimensions
+        stub_cpu_executor: fixture replacing unfinished CPU numerical execution
     Returns:
         None.
     """
+    _ = stub_cpu_executor
     image = npy.zeros(shape, dtype=npy.float32)
 
-    _api._validate_cpu_canny_image(image, gaussian_radius)
+    _api.canny(image, sigma=sigma)
 
 
 @pytest.mark.parametrize(
-    "image, gaussian_radius, expected_exception, message",
+    "image, sigma, expected_exception, message",
     [
-        ([[0.0, 0.0], [0.0, 0.0]], 0, TypeError, "object of type"),
-        (npy.zeros((2, 2), dtype=npy.float64), 0, TypeError, "float64"),
-        (npy.zeros((2, 2, 1), dtype=npy.float32), 0, ValueError, "3 dimensions"),
-        (npy.zeros((0, 12), dtype=npy.float32), 6, ValueError, "height is 0"),
-        (npy.zeros((12, 0), dtype=npy.float32), 6, ValueError, "width is 0"),
-        (npy.zeros((1, 2), dtype=npy.float32), 0, ValueError, "height is 1"),
-        (npy.zeros((2, 1), dtype=npy.float32), 0, ValueError, "width is 1"),
-        (npy.zeros((11, 12), dtype=npy.float32), 6, ValueError, "height is 11"),
-        (npy.zeros((12, 11), dtype=npy.float32), 6, ValueError, "width is 11"),
+        ([[0.0, 0.0], [0.0, 0.0]], 0.0, TypeError, "NumPy or CuPy"),
+        (npy.zeros((2, 2), dtype=npy.float64), 0.0, TypeError, "float64"),
+        (npy.zeros((2, 2, 1), dtype=npy.float32), 0.0, ValueError, "3 dimensions"),
+        (npy.zeros((0, 12), dtype=npy.float32), 1.5, ValueError, "height is 0"),
+        (npy.zeros((12, 0), dtype=npy.float32), 1.5, ValueError, "width is 0"),
+        (npy.zeros((1, 2), dtype=npy.float32), 0.0, ValueError, "height is 1"),
+        (npy.zeros((2, 1), dtype=npy.float32), 0.0, ValueError, "width is 1"),
+        (npy.zeros((11, 12), dtype=npy.float32), 1.5, ValueError, "height is 11"),
+        (npy.zeros((12, 11), dtype=npy.float32), 1.5, ValueError, "width is 11"),
     ],
 )
 def test_invalid_cpu_canny_image_structure_rejection(
     image: object,
-    gaussian_radius: int,
+    sigma: float,
     expected_exception: type[Exception],
     message: str,
 ) -> None:
@@ -146,14 +202,14 @@ def test_invalid_cpu_canny_image_structure_rejection(
 
     Args:
         image: invalid CPU image candidate supplied by the parametrized case
-        gaussian_radius: radius determining the minimum supported dimensions
+        sigma: Gaussian standard deviation determining the minimum dimensions
         expected_exception: exception class required by the validation contract
         message: regular expression expected in the exception message
     Returns:
         None.
     """
     with pytest.raises(expected_exception, match=message):
-        _api._validate_cpu_canny_image(image, gaussian_radius)  # type: ignore[arg-type]
+        _api.canny(image, sigma=sigma)
 
 
 @pytest.mark.parametrize(
@@ -200,6 +256,5 @@ def test_validation_rejects_image_pixel_values_out_of_range(
         sigma: valid sigma accompanying each image supplied by the parametrized test case
     Returns: None
     """
-    radius = _api._gaussian_radius(sigma, _api._GAUSSIAN_TRUNCATE)
     with pytest.raises(ValueError):
-        _api._validate_cpu_canny_image(image, radius)
+        _api.canny(image, sigma=sigma)

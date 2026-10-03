@@ -3,14 +3,33 @@ Validation of public inputs and logic for dispatching into the supported backend
 """
 
 import math
+import sys
+from typing import Any
 
 import numpy as npy
 
-from ._cpu import Float32Array2D
+from ._cpu import _canny_cpu
+
+# Python 3.10 compatability until Ubuntu 22.04 standard support by Canonical EOL's
+if sys.version_info >= (3, 11):
+    from enum import StrEnum, auto
+else:
+    from backports.strenum import StrEnum, auto
+
 
 _GAUSSIAN_TRUNCATE: float = 4.0
 _LOW_THRESH_TYPE_STR: str = "low"
 _HIGH_THRESH_TYPE_STR: str = "high"
+
+
+class CannyBackend(StrEnum):
+    """
+    Supported backends used for execution for the Canny Operator
+    """
+
+    AUTO = auto()
+    CPU = auto()
+    GPU = auto()
 
 
 def _gaussian_radius(sigma: float, truncate: float) -> int:
@@ -98,60 +117,113 @@ def _validate_shared_canny_args(
         )
 
 
-def _validate_cpu_canny_image(image: Float32Array2D, gaussian_radius: int) -> None:
+def _detect_array_backend(image: Any) -> CannyBackend:
     """
-    Validates CPU residency, dtype, values range, shape, and CPU dimensions of image
+    Detect the backend that owns an accepted input array.
+
     Args:
-        image: object to be validated
-        gaussian_radius: radius of gaussian blur kernel to be applied
-    Returns: None
+        image: candidate backend-native image array
+    Returns:
+        CPU for a NumPy array or GPU for an already-imported CuPy array
     Raises:
-        TypeError: if image is not a NumPy ndarray with float32 dtype
-        ValueError: if image has an invalid shape, dimensions, or pixel values
+        TypeError: if image is not an ndarray from a recognized backend
     """
-    required_any_dim_size: int = 2 * max(1, gaussian_radius)
-    expected_msg_error_str: str = (
-        "Expected a 2D NumPy float32 ndarray for image where all "
-        + "values in said array are between 0.0 and 1.0 inclusive, "
-        + f"and width and height are at least each {required_any_dim_size} "
-        + "pixels!"
-    )
+    if isinstance(image, npy.ndarray):
+        return CannyBackend.CPU
 
-    if not isinstance(image, npy.ndarray):
-        raise TypeError(f"ERROR: got an object of type {type(image)} for image! ")
-    if not image.ndim == 2:
-        raise ValueError(
-            f"ERROR: got an image with {image.ndim} dimensions! "
-            + expected_msg_error_str
-        )
-    if not npy.isdtype(image.dtype, npy.float32):
+    cupy_module = sys.modules.get("cupy")
+    cupy_array_type = getattr(cupy_module, "ndarray", None)
+    if cupy_array_type is not None and isinstance(image, cupy_array_type):
+        return CannyBackend.GPU
+
+    raise TypeError("image must be a NumPy or CuPy ndarray!")
+
+
+def _resolve_canny_backend(
+    image: Any, backend: CannyBackend | str = "auto"
+) -> CannyBackend:
+    """
+    Args:
+        image: the input image for which to detect the ndarray backend
+        backend: the backend explicitly requested for the image
+    Returns:
+        The execution backend consistent with both image and backend without
+        transferring image data
+    Raises:
+        ValueError: Unsupported backend
+        TypeError: backend mismatch between image and backend OR image itself is not
+            using a supported ndarray backend
+        RuntimeError: gpu backend not available when it is requested explicitly
+
+    """
+    requested_backend: CannyBackend
+    try:
+        requested_backend = CannyBackend(backend)
+    except (TypeError, ValueError) as excpt:
+        raise ValueError(f"Unsupported backend: {backend!r}!") from excpt
+
+    selected_backend: CannyBackend
+    resident_backend = _detect_array_backend(image)
+
+    if requested_backend == CannyBackend.AUTO:
+        selected_backend = resident_backend
+    else:
+        selected_backend = requested_backend
+
+    if selected_backend != resident_backend:
         raise TypeError(
-            f"ERROR: got an image of data type {image.dtype.name}! "
-            + expected_msg_error_str
-        )
-    if not npy.isfinite(image).all():
-        raise ValueError(
-            "ERROR: got a 2D float32 image where not all of the values "
-            "are finite!" + expected_msg_error_str
-        )
-    if (
-        npy.less(image, npy.float32(0.0)).any()
-        or npy.greater(image, npy.float32(1.0)).any()
-    ):
-        raise ValueError(
-            "ERROR: got a 2D float32 image where not all of the values "
-            "are between 0.0 and 1.0 inclusive! " + expected_msg_error_str
+            f"{selected_backend!r} backend cannot process "
+            f"{resident_backend!r}-resident input!"
         )
 
-    if image.shape[0] < required_any_dim_size:
-        raise ValueError(
-            "ERROR: got a 2D float32 image where all values are between "
-            f"0.0 and 1.0 inclusive, but image height is {image.shape[0]}! "
-            + expected_msg_error_str
+    if selected_backend is CannyBackend.GPU:
+        raise RuntimeError("GPU backend is unavailable!")
+
+    return selected_backend
+
+
+def canny(  # pylint: disable=too-many-arguments # Arguments implement the reviewed public operator contract
+    image: Any,
+    sigma: float = 1.5,
+    low_threshold: float = 0.1,
+    high_threshold: float = 0.2,
+    *,
+    backend: CannyBackend | str = CannyBackend.AUTO,
+    ccl: str | None = None,
+    workspace: Any = None,
+) -> Any:
+    """
+    Validate shared Canny arguments and dispatch once to the selected backend.
+
+    Args:
+        image: backend-native two-dimensional float32 grayscale image
+        sigma: nonnegative Gaussian standard deviation
+        low_threshold: absolute weak-edge threshold in the interval [0.0, 1.0]
+        high_threshold: absolute strong-edge threshold in the interval [0.0, 1.0]
+        backend: auto, CPU, or GPU execution selection
+        ccl: optional CPU connected-component-labeling implementation name
+        workspace: optional workspace compatible with the selected backend
+    Returns:
+        backend-native two-dimensional Boolean edge array
+    Raises:
+        TypeError: if image residency or a backend-specific argument is incompatible
+        ValueError: if a scalar, backend name, image, workspace, or CCL choice is invalid
+        RuntimeError: if an explicitly selected implementation is unavailable
+        NotImplementedError: while the refined CPU numerical stages remain unintegrated
+    """
+    _validate_shared_canny_args(sigma, low_threshold, high_threshold)
+    selected_backend = _resolve_canny_backend(image, backend)
+    gaussian_radius = _gaussian_radius(sigma, _GAUSSIAN_TRUNCATE)
+
+    if selected_backend is CannyBackend.CPU:
+        return _canny_cpu(
+            image,
+            sigma,
+            gaussian_radius,
+            low_threshold,
+            high_threshold,
+            ccl=ccl,
+            workspace=workspace,
         )
-    if image.shape[1] < required_any_dim_size:
-        raise ValueError(
-            "ERROR: got a 2D float32 image where all values are between "
-            f"0.0 and 1.0 inclusive, but image width is {image.shape[1]}! "
-            + expected_msg_error_str
-        )
+
+    raise RuntimeError(f"Backend {selected_backend.value!r} is unavailable!")

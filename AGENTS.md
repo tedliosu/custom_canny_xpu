@@ -387,6 +387,13 @@ not decide them implicitly while doing unrelated work.
   without unsuppressed diagnostics. Keep every necessary suppression narrow
   and document its reason locally; do not use broad suppressions to hide an
   unresolved typing or lint problem.
+- Run Ruff through the maintainer-designated Python environment after changing
+  Python import blocks or lint-sensitive code. Treat Ruff's `I001` result as
+  authoritative for repository import formatting: standalone isort may choose
+  a different wrapping layout, and per-file Pylint does not perform the same
+  check. Before adding an import-order suppression, run Ruff on the affected
+  source and tests and apply its formatting when that change is otherwise
+  harmless.
 
 Prefer explicit organization around ownership, lifetime, and dispatch
 boundaries. Use objects for stateful resources such as reusable workspaces and
@@ -429,6 +436,16 @@ choice. Every added public or cross-module behavior must have tests for both
 expected successful behavior and representative expected failure behavior.
 Apply the same paired approach to private behavior when it has a meaningful
 failure contract.
+
+Prefer testing observable behavior through the public or documented
+cross-module boundary. Direct tests of private helpers are appropriate when a
+helper expresses a nontrivial pure policy or meaningful internal failure
+contract and reaching it through the public operator would be impossible,
+materially less diagnostic, or require monkeypatching that obscures the logic
+under test. State that reason near the tests and record a retirement trigger
+for temporary private-boundary tests. Do not add monkeypatching merely to avoid
+private access; once the real public path can exercise the behavior clearly,
+migrate redundant private tests to that path.
 
 After meaningful numerical or performance changes, verify:
 

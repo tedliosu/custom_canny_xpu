@@ -1,0 +1,4 @@
+[MAIN]
+
+# Resolve the repository's src-layout package in editors and direct Pylint runs.
+init-hook=import sys; sys.path.insert(0, "src")

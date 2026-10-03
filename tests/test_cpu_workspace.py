@@ -2,11 +2,23 @@
 CPU workspace construction tests.
 """
 
+from dataclasses import replace
+
 import numpy as npy
-import pytest
+
+# Pyright environment discovery misses the installed pytest package.
+import pytest  # pyright: ignore[reportMissingImports]
 
 from custom_canny_xpu import CpuWorkspace, create_cpu_workspace
+from custom_canny_xpu._cpu import (
+    _prepare_cpu_workspace,
+    _validate_cpu_workspace_compatibility,
+)
 from custom_canny_xpu._cpu_ccl import CCLStrategy
+
+# Workspace preparation and compatibility are meaningful cross-module
+# ownership boundaries. Their direct tests complement public orchestration
+# tests and should be reassessed if those helpers cease to be shared boundaries.
 
 
 def test_create_scipy_workspace() -> None:
@@ -145,3 +157,86 @@ def test_create_cpu_workspace_rejects_unavailable_cc3d() -> None:
     """
     with pytest.raises(RuntimeError, match="CC3D"):
         create_cpu_workspace((5, 7), ccl="cc3d")
+
+
+def test_prepare_cpu_workspace_constructs_default() -> None:
+    """
+    Verify omitted workspace and CCL construct the default SciPy workspace.
+
+    Returns:
+        None.
+    """
+    workspace = _prepare_cpu_workspace((5, 7), ccl=None, workspace=None)
+
+    assert workspace.shape == (5, 7)
+    assert workspace.ccl_strategy is CCLStrategy.SCIPY_CCL
+
+
+def test_prepare_cpu_workspace_reuses_supplied_workspace() -> None:
+    """
+    Verify a compatible caller-owned CPU workspace is returned unchanged.
+
+    Returns:
+        None.
+    """
+    workspace = create_cpu_workspace((5, 7))
+
+    prepared_workspace = _prepare_cpu_workspace(
+        (5, 7), ccl=None, workspace=workspace
+    )
+
+    assert prepared_workspace is workspace
+
+
+def test_prepare_cpu_workspace_rejects_explicit_ccl_with_workspace() -> None:
+    """
+    Verify an explicit CCL name and supplied workspace are mutually exclusive.
+
+    Returns:
+        None.
+    """
+    workspace = create_cpu_workspace((5, 7))
+
+    with pytest.raises(ValueError, match="cannot both"):
+        _prepare_cpu_workspace((5, 7), ccl="scipy", workspace=workspace)
+
+
+def test_validate_cpu_workspace_rejects_wrong_shape() -> None:
+    """
+    Verify workspace compatibility validation rejects a different image shape.
+
+    Returns:
+        None.
+    """
+    workspace = create_cpu_workspace((5, 7))
+
+    with pytest.raises(ValueError, match="shape"):
+        _validate_cpu_workspace_compatibility(workspace, (7, 5))
+
+
+def test_validate_cpu_workspace_rejects_wrong_object_type() -> None:
+    """
+    Verify workspace compatibility validation rejects non-workspace objects.
+
+    Returns:
+        None.
+    """
+    with pytest.raises(TypeError, match="CpuWorkspace"):
+        _validate_cpu_workspace_compatibility(object(), (5, 7))
+
+
+def test_validate_cpu_workspace_rejects_wrong_buffer_dtype() -> None:
+    """
+    Verify workspace compatibility validation rejects an altered scratch dtype.
+
+    Returns:
+        None.
+    """
+    workspace = create_cpu_workspace((5, 7))
+    invalid_workspace = replace(
+        workspace,
+        gaussian_out=npy.empty((5, 7), dtype=npy.float64),
+    )
+
+    with pytest.raises(TypeError, match="float32"):
+        _validate_cpu_workspace_compatibility(invalid_workspace, (5, 7))
