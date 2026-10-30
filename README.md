@@ -120,7 +120,7 @@ these high-level stages:
 
 1. Gaussian filtering;
 2. Sobel gradient extraction;
-3. interpolation-based non-maximum suppression;
+3. major-axis linear-interpolation non-maximum suppression;
 4. double hysteresis through connected-component analysis; and
 5. reusable workspace management around those stages.
 
@@ -297,9 +297,9 @@ still open design decisions.
 The operator is specialized and is not currently promised to be an exact
 semantic clone of scikit-image or OpenCV. scikit-image is the primary semantic
 reference because the intended high-level structure includes 3x3 Sobel
-gradients, interpolation-based NMS, absolute thresholds, and connectivity-based
-hysteresis. The initial custom contract is narrower: float32 grayscale input
-only and fixed nearest-boundary semantics.
+gradients, major-axis linear-interpolation NMS, absolute thresholds, and
+connectivity-based hysteresis. The initial custom contract is narrower:
+float32 grayscale input only and fixed nearest-boundary semantics.
 
 Correctness work should include:
 
@@ -341,11 +341,12 @@ definitions and procedure are in
 [`docs/benchmark-evidence-lifecycle.md`](docs/benchmark-evidence-lifecycle.md).
 
 In particular, measurements from older refined prototypes that performed
-per-image magnitude normalization are historical evidence only. The Oct. 22
-external references remove it and revise NMS and hysteresis, but remain outside
-this checkout and require complete current-generation validation and timing. A
-current CPU/GPU speedup requires both backends to implement a comparable
-semantic generation.
+per-image magnitude normalization and unit-distance coordinate-based NMS are
+historical evidence only. The Oct. 22 external references remove the
+normalization, adopt major-axis linear-interpolation NMS, and revise
+hysteresis, but remain outside this checkout and require complete
+current-generation validation and timing. A current CPU/GPU speedup requires
+both backends to implement a comparable semantic generation.
 
 For affected Numba `parallel=True` kernels, fresh compilation and disk-cache
 loading can bind calls to different physical parfor/gufunc copies and produce
@@ -551,18 +552,20 @@ when completing a parent item.
    source. The `src/custom_canny_xpu/` package, explicit CPU workspace object,
    earlier SciPy-default CCL resolver boundary, public-boundary validation,
    one-time CPU dispatch, and their initial tests are present. The public
-   operator remains unexported while its numerical executor is explicitly unfinished.
+   operator remains unexported while its numerical executor is explicitly
+   unfinished.
    Next integrate the ordinary CPU stages and specialized partitioned CCA
    hysteresis reference, keeping third-party-derived and project-specific code
    boundaries explicit. Remove the now-older public SciPy/cc3d selector and its
-   generic-label workspace state rather than retaining a fallback path. Derive the CPU minimum
-   dimensions from the active Gaussian and Sobel radii; at `sigma=1.5` the
-   reviewed custom convolution requires 12 by 12, not 3 by 3 or 13 by 13.
-   Integrate the corrected major-axis interpolated NMS and verify the contract's
-   two-sided coordinate clamping at every border. Add root `main.py` as the
-   application boundary, and bring integrated functions under the documented
-   docstring, Pyright, lint, and
-   paired-test rules. Do not integrate the optional cc3d binding; retain its
+   generic-label workspace state rather than retaining a fallback path. Derive
+   the CPU minimum dimensions from the active Gaussian and Sobel radii; at
+   `sigma=1.5` the reviewed custom convolution requires 12 by 12, not 3 by 3 or
+   13 by 13.
+   Integrate the corrected major-axis linear-interpolation NMS and verify that
+   every selected integer neighbor is clamped at both bounds. Add root
+   `main.py` as the application boundary, and bring integrated functions under
+   the documented docstring, Pyright, lint, and paired-test rules. Do not
+   integrate the optional cc3d binding; retain its
    historical evidence and provenance without an LGPL runtime dependency.
 2. Integrate the optional GPU implementation with graceful CPU-only import and
    clear forced-GPU failure behavior. Preserve its independently derived 1-by-1
@@ -582,9 +585,11 @@ when completing a parent item.
 5. Add a `pytest` suite for stage behavior, CPU/GPU agreement, reference
    disagreement, optional-dependency behavior, and representative error paths.
    Cover each backend's minimum width and height, each minimum minus one,
-   non-square boundary cases, a normal image, and axis-aligned NMS gradients at
-   every border. Exercise the GPU singleton CCA path with both background and
-   foreground/strong-pixel cases when GPU tests become available.
+   non-square boundary cases, a normal image, and NMS cases covering both
+   dominant axes, diagonal interpolation weights, ties, zero magnitude at a
+   zero low threshold, and every border. Exercise the GPU singleton CCA path
+   with both background and foreground/strong-pixel cases when GPU tests become
+   available.
 6. Establish dependency metadata, supported-version policy, and
    lint/type-check configuration for refined code. Decide separately how much
    checking applies to frozen alpha artifacts.

@@ -37,6 +37,14 @@ be a source transliteration of cc3d, LSL, or YACCLAB. Treat those works as
 algorithmic inspiration unless a later source audit establishes derivation;
 YACCLAB was a literature-discovery route, not incorporated source.
 
+The refined NMS rule was selected after source inspection of
+[scikit-image v0.25.2](https://github.com/scikit-image/scikit-image/blob/v0.25.2/skimage/feature/_canny_cy.pyx).
+Despite the upstream helper name `_nonmaximum_suppression_bilinear`, the
+relevant behavior is a major-axis step with one-dimensional linear
+interpolation between a dominant-axis neighbor and its adjacent diagonal
+neighbor. This records semantic-reference influence rather than claiming that
+the not-yet-integrated custom CPU/GPU kernels are source translations.
+
 ## AI-assisted code and scaffolding
 
 Material implementation assistance identified so far includes:
@@ -51,6 +59,12 @@ Material implementation assistance identified so far includes:
 - substantial Claude Sonnet 5.5 and Claude Opus 5.5 assistance on the external
   Oct. 22 specialized-CCA CPU/GPU reference implementations, following earlier
   ChatGPT-assisted design, prototype, and test work.
+
+Claude Sonnet 5.5 also materially assisted the scikit-image NMS conformance
+investigation: source reading identified that the misleadingly named upstream
+helper uses the major-axis linear rule rather than unit-distance bilinear
+sampling. The maintainer ran the comparison, accepted the corrected semantics,
+and retained clamped custom borders as a separately documented contract choice.
 
 For the cc3d work, the maintainer identified the public API's GIL/threading
 limitation, specified the API and preallocation behavior, benchmarked and

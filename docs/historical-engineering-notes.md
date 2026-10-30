@@ -168,25 +168,49 @@ a runtime boundary test. They cover both the no-component early return and the
 one-component foreground path. The custom CCL and its one-pixel launches impose
 a nonempty 1-by-1 floor but no larger dimension constraint.
 
-Both prototypes also contain a separate NMS boundary defect that is not solved
-by any minimum dimension. Forward and backward bilinear coordinates clamp the
-left/down index only at the lower bound and the right/up index only at the upper
-bound. An exactly axis-aligned gradient pointing out through a right or bottom
-edge can leave the complementary coordinate one past the array. Running the
-CPU kernel's Python-level implementation on a crafted 3-by-3 horizontal
-gradient reproduced an out-of-bounds `IndexError`. During integration, clamp
-every NMS coordinate to both bounds in the CPU and GPU implementations before
-claiming their backend-specific minima. This is a correctness fix, not a reason
-to force the GPU to adopt the CPU convolution minimum.
+Those pre-Oct. 22 prototypes also contained an NMS boundary defect that is not
+solved by any minimum dimension. Their normalized-gradient, floating-coordinate
+formulation clamped one side of some coordinates only at the lower bound and
+the other side only at the upper bound. An exactly axis-aligned gradient
+pointing out through a right or bottom edge could leave the complementary
+coordinate one past the array. Running the CPU kernel's Python-level
+implementation on a crafted 3-by-3 horizontal gradient reproduced an
+out-of-bounds `IndexError`. This formulation is historical: the Oct. 22
+references instead use the scikit-image-style major-axis linear rule described
+below. During integration, clamp every selected integer neighbor to both bounds
+before claiming the backend-specific minima. This is a correctness fix, not a
+reason to force the GPU to adopt the CPU convolution minimum.
 
-With that correction, the NMS kernels accept any nonempty dimensions,
-including 1 by 1: both coordinates of every sample clamp to zero on a singleton
-axis. The uncorrected external GPU NMS kernel is not independently safe for an
-arbitrary singleton-shaped magnitude/direction input. A complete 1-by-1 call is
-only source-expected to avoid the defect because nearest-boundary Sobel produces
-zero gradients and therefore zero NMS offsets. Treat 1 by 1 as the integrated,
-corrected GPU contract and require an actual device test rather than presenting
-the external prototype as already verified.
+With corrected two-sided clamping, NMS accepts any nonempty dimensions,
+including 1 by 1: every selected neighbor maps to zero on a singleton axis.
+Treat 1 by 1 as the integrated, corrected GPU contract and require an actual
+device test rather than presenting the external prototype as already verified.
+
+### Oct. 22 major-axis NMS conformance correction
+
+Source inspection of scikit-image v0.25.2 established that its misleadingly
+named `_nonmaximum_suppression_bilinear` helper does not sample one Euclidean
+unit along a normalized gradient. It steps one pixel along the dominant
+gradient axis on each side and linearly blends that neighbor with the adjacent
+diagonal neighbor using
+`min(abs(sobel_x), abs(sobel_y)) / max(abs(sobel_x), abs(sobel_y))`. Ties
+survive because the current magnitude is compared with `>=` on both sides.
+
+The Oct. 22 external CPU/GPU references adopt that rule with integer neighbor
+offsets and direct weight computation. Replacing the earlier unit-distance
+coordinate formulation reduced disagreement against scikit-image from about
+0.136% to 0.00096% (about 223 pixels) on one 23,230,262-pixel image. This is
+historical external-prototype evidence, not a repository-wide acceptance
+tolerance or proof that every remaining difference is understood. Avoiding
+absolute float32 sample coordinates also prevents position-dependent weight
+quantization on wide images.
+
+Two distinctions remain deliberate. scikit-image applies the low threshold
+inside NMS, whereas the specialized custom design may apply the identical
+candidate predicate during CCA initialization. scikit-image also zeros its
+outer one-pixel ring through an eroded mask, while the current custom contract
+uses clamped NMS neighbors. The latter is a documented semantic deviation, not
+an unfinished claim of exact scikit-image equivalence.
 
 ## CPU observations
 
@@ -498,15 +522,17 @@ hysteresis, and roughly 30x for Canny overall. Run-to-run variation makes these
 classes, not exact constants.
 
 The roughly 40x NMS ratio is not a claim about raw FP32 throughput. Both custom
-backends quickly enter compiled per-pixel code, but real interpolation NMS does
-more coordinate arithmetic, conversion, clamping, gathers, and bilinear work
-than NMS-lite. SIMT lets that scalar-looking work be expressed as independent
-pixel threads while hardware groups them into vector-like warps or wavefronts;
-it is related to, but not programmer-equivalent to, explicit SIMD. The observed
-throughput also depends on execution lanes, registers, bandwidth, caches,
-occupancy, and latency hiding. NVIDIA-style independent thread scheduling is
-not central to this shallowly divergent NMS, though divergence behavior matters
-more for variable root traversal, retry loops, and atomics in CCL.
+backends quickly enter compiled per-pixel code, but that generation's
+normalized-gradient interpolation NMS does more coordinate arithmetic,
+conversion, clamping, gathers, and bilinear sampling work than NMS-lite. It is
+not the Oct. 22 major-axis linear implementation. SIMT lets that scalar-looking
+work be expressed as independent pixel threads while hardware groups them into
+vector-like warps or wavefronts; it is related to, but not
+programmer-equivalent to, explicit SIMD. The observed throughput also depends
+on execution lanes, registers, bandwidth, caches, occupancy, and latency
+hiding. NVIDIA-style independent thread scheduling is not central to this
+shallowly divergent NMS, though divergence behavior matters more for variable
+root traversal, retry loops, and atomics in CCL.
 The maintainer also observed 100+ GPix/s-class NMS throughput on MI300X; that
 result reflects the full hardware and execution shape, not SIMT alone.
 

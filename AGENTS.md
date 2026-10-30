@@ -216,8 +216,9 @@ term is materially useful.
 
 The Canny operator accepts only a two-dimensional, finite, `[0, 1]` float32
 grayscale array. It consists of Gaussian filtering, Sobel gradients,
-interpolation-based NMS, connectivity-based double hysteresis, and reusable
-workspace management. RGB-to-grayscale conversion is a separate composable operator.
+major-axis linear-interpolation NMS, connectivity-based double hysteresis, and
+reusable workspace management. RGB-to-grayscale conversion is a separate
+composable operator.
 scikit-image is the primary semantic reference, but the custom operator is not
 assumed to match every scikit-image or OpenCV behavior exactly. Treat
 `docs/operator-contract.md` as the durable detailed API contract.

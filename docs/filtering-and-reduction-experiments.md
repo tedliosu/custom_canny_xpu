@@ -65,11 +65,12 @@ branch.
 
 The newer Oct. 22 external CPU/GPU references retain the separable filtering
 direction but remove both the post-blur clip and per-image maximum-magnitude
-normalization. They also use corrected interpolated NMS and specialized CCA
-hysteresis. Those files remain external integration references rather than
-implementation evidence for this checkout, and their complete correctness and
-performance evidence is pending refresh. Do not apply the older pass model or
-stage ratios to them merely by subtracting the removed reduction.
+normalization. They also use corrected major-axis linear-interpolation NMS and
+specialized CCA hysteresis. Those files remain external integration references
+rather than implementation evidence for this checkout, and their complete
+correctness and performance evidence is pending refresh. Do not apply the
+older pass model or stage ratios to them merely by subtracting the removed
+reduction.
 
 ## Numba compilation and cache state
 

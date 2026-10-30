@@ -52,9 +52,9 @@ The stage-derived dimension constraints are:
   The custom radius-one CPU Sobel convolution requires at least 2 by 2.
 - CuPyX Gaussian and Sobel filtering with nearest-boundary semantics supports
   singleton axes.
-- Corrected CPU and GPU NMS supports every nonempty shape. Clamping both
-  coordinates of each bilinear sample to both bounds maps every coordinate to
-  zero on a singleton axis.
+- Corrected CPU and GPU NMS supports every nonempty shape. Clamping each
+  selected dominant-axis and diagonal integer neighbor to both bounds maps
+  every neighbor to zero on a singleton axis.
 - The specialized CPU/GPU CCA designs support a single pixel and impose no
   larger minimum, while CPU convolution independently imposes at least 2 by 2.
 - Workspace allocation supports any positive 2D shape. Zero-sized dimensions
@@ -98,17 +98,40 @@ labeling metadata during CCA integration before `canny` becomes public.
   independent of whether integer input is accepted; they may be considered
   later only through a separate scope decision.
 - Gaussian, Sobel, and NMS neighborhood reads use nearest/clamped-boundary
-  semantics. Every NMS sample coordinate must be clamped at both its lower and
-  upper bound; older external prototypes' one-sided coordinate clamps were a
-  known out-of-bounds defect. Verify the corrected reference behavior during
-  integration. There is no public border-mode parameter initially.
+  semantics. Every selected NMS neighbor index must be clamped at both its
+  lower and upper bound; older external prototypes' one-sided clamps were a
+  known out-of-bounds defect. This contract deliberately retains clamped NMS
+  borders rather than scikit-image v0.25.2's eroded-mask behavior, which zeros
+  the outermost one-pixel ring. There is no public border-mode parameter
+  initially.
 
-The operator uses interpolation-based non-maximum suppression followed by the
-scikit-image-style double-hysteresis predicate: keep a low-threshold candidate
-pixel exactly when its 8-connected candidate component contains at least one
-high-threshold pixel. Dense consecutive component IDs and a relabeled image are
-not required outputs. This is a shared high-level contract, not a requirement
-that CPU and GPU use identical CCA algorithms or synchronization.
+NMS follows
+[scikit-image v0.25.2's directional rule](https://github.com/scikit-image/scikit-image/blob/v0.25.2/skimage/feature/_canny_cy.pyx)
+despite the upstream helper's `bilinear` name. For each side of a pixel, step
+one integer position along the dominant gradient axis and choose the adjacent
+diagonal position in the gradient direction. Linearly blend those two
+magnitudes with diagonal weight
+
+```text
+min(abs(sobel_x), abs(sobel_y)) / max(abs(sobel_x), abs(sobel_y))
+```
+
+and retain the current magnitude when it is greater than or equal to both
+interpolated neighbors. Compute the weight directly from gradient components;
+do not construct absolute float32 subpixel coordinates or sample one Euclidean
+unit along the normalized gradient. Handle a zero dominant component locally
+without division warnings or nonfinite values.
+
+The low threshold defines the candidate predicate on the NMS-suppressed
+magnitude. An implementation may apply that predicate in NMS, as scikit-image
+does, or fuse it into specialized CCA initialization; changing the stage
+boundary must not change candidate membership. A zero magnitude is never a
+candidate even when `low_threshold == 0`, so flat inputs remain all false.
+Double hysteresis then keeps a candidate pixel exactly when its 8-connected
+candidate component contains at least one high-threshold pixel. Dense
+consecutive component IDs and a relabeled image are not required outputs. This
+is a shared high-level contract, not a requirement that CPU and GPU use
+identical CCA algorithms or synchronization.
 
 Flat inputs follow the ordinary operator path rather than a separate
 image-level fast path. Zero gradient magnitude must be handled locally without

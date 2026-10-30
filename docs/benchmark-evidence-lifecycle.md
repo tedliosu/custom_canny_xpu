@@ -107,10 +107,13 @@ measurements themselves.
 ## Absolute-threshold and prototype-generation transition
 
 Older external refined CPU and GPU prototypes divided gradient magnitude by the
-per-image maximum. The Oct. 22 external references remove that normalization,
-correct NMS, and use specialized CCA hysteresis, but those numerical stages are
-not integrated into this checkout. Moving between these generations changes
-more than the cost of one reduction.
+per-image maximum and sampled NMS neighbors using a different
+normalized-gradient coordinate formulation. The Oct. 22 external references
+remove that normalization, use scikit-image-style major-axis
+linear-interpolation NMS, and use specialized CCA hysteresis, but those
+numerical stages are not integrated into this checkout. Moving between these
+generations changes more than the cost of one reduction.
+
 It can affect:
 
 - CPU and GPU stage timings;
@@ -121,13 +124,15 @@ It can affect:
 - derived stage fractions and proxy interpretations.
 
 Measurements from the normalized prototypes can remain valid historical
-evidence for those generations. Measurements from the Oct. 22 references are
-also external-prototype evidence until reproduced from identified integrated
-code. Neither may be presented as current checkout evidence, and future timing
-must not be estimated as the old timing minus the maximum-reduction cost. If
-CPU and GPU temporarily implement different semantic generations, their
-measurements must not be combined into a current cross-backend speedup until
-comparability is established.
+evidence for those generations. Their raw NMS timings likewise describe the
+superseded coordinate formulation, while any claim that it represented the
+current scikit-image-conformant NMS semantics is invalid. Measurements from the
+Oct. 22 references are also external-prototype evidence until reproduced from
+identified integrated code. Neither may be presented as current checkout
+evidence, and future timing must not be estimated as the old timing minus the
+maximum-reduction cost. If CPU and GPU temporarily implement different semantic
+generations, their measurements must not be combined into a current
+cross-backend speedup until comparability is established.
 
 ## Generated-code and cache-state transition
 
