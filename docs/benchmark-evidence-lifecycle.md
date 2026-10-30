@@ -22,7 +22,9 @@ on the claim, that context includes:
   workload parameters;
 - hardware, compiler, runtime, dependency, driver, and backend configuration;
 - allocation and workspace policy, synchronization, warmup, and timing
-  boundaries; and
+  boundaries;
+- compilation and cache state when generated-code identity or call-target
+  resolution can affect the executed kernel; and
 - correctness/reference configuration when disagreement is reported.
 
 Not every report needs every field. Record the fields that can materially
@@ -94,28 +96,53 @@ Gaussian-footprint experiment. A changed CPU filtering implementation can make
 a proxy-to-Canny interpretation stale without changing the raw measurements
 from the original proxy script.
 
-## Absolute-threshold transition
+The current tentative proxy uses HPC-Dwarfs' TheBandwidthBenchmark as a
+first-order CPU/GPU hardware-throughput expectation. Its raw streaming results
+retain their own evidence identity, while any inferred Canny ratio depends on
+the matched operator generation, dimensions, threading, compiler/runtime,
+hardware configuration, and selected kernel mix. A CCA or stage-composition
+change can invalidate the inferred ratio without invalidating the bandwidth
+measurements themselves.
 
-The external refined CPU and GPU prototypes still divide gradient magnitude by
-the per-image maximum. The reviewed operator contract removes that
-normalization and applies absolute thresholds to NMS-suppressed Sobel
-magnitudes. Integration therefore changes more than the cost of one reduction.
+## Absolute-threshold and prototype-generation transition
+
+Older external refined CPU and GPU prototypes divided gradient magnitude by the
+per-image maximum. The Oct. 22 external references remove that normalization,
+correct NMS, and use specialized CCA hysteresis, but those numerical stages are
+not integrated into this checkout. Moving between these generations changes
+more than the cost of one reduction.
 It can affect:
 
 - CPU and GPU stage timings;
 - weak- and strong-candidate populations;
-- CCL input topology and hysteresis cost;
+- candidate-connectivity topology and hysteresis cost;
 - final edge maps and reference disagreement;
 - overall CPU/GPU speedup; and
 - derived stage fractions and proxy interpretations.
 
 Measurements from the normalized prototypes can remain valid historical
-evidence for those generations. They must not be presented as current evidence
-for the refined absolute-threshold operator, and its future timing must not be
-estimated as the old timing minus the maximum-reduction cost. If CPU and GPU
-temporarily implement different semantic generations, their measurements must
-not be combined into a current cross-backend speedup until comparability is
-established.
+evidence for those generations. Measurements from the Oct. 22 references are
+also external-prototype evidence until reproduced from identified integrated
+code. Neither may be presented as current checkout evidence, and future timing
+must not be estimated as the old timing minus the maximum-reduction cost. If
+CPU and GPU temporarily implement different semantic generations, their
+measurements must not be combined into a current cross-backend speedup until
+comparability is established.
+
+## Generated-code and cache-state transition
+
+For affected Numba `parallel=True` kernels, fresh JIT compilation and cache
+loading can resolve calls to different physical parfor/gufunc copies. Identical
+source and output therefore do not guarantee identical executed machine code or
+steady-state timing. A cache-loaded run is not automatically the corrected
+version of a fresh run, nor vice versa.
+
+When this mechanism may affect a conclusion, preserve the old measurement as
+evidence for its recorded regime if that regime is known, and mark cross-regime
+or unknown-state comparisons pending revalidation. Reproduce algorithm
+comparisons with matched cache/JIT state and process boundaries. Experimental
+call-target redirection or symbol-internalization results demonstrate a
+mechanism but are not current operator evidence or an approved default patch.
 
 ## Reporting and publication
 

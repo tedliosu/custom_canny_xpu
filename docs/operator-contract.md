@@ -55,10 +55,8 @@ The stage-derived dimension constraints are:
 - Corrected CPU and GPU NMS supports every nonempty shape. Clamping both
   coordinates of each bilinear sample to both bounds maps every coordinate to
   zero on a singleton axis.
-- SciPy CCL and the inspected custom GPU CCL support a single pixel and impose
-  no larger minimum. The optional cc3d binding must still be checked during its
-  separate integration, but the CPU convolution already imposes a minimum of
-  at least 2 by 2.
+- The specialized CPU/GPU CCA designs support a single pixel and impose no
+  larger minimum, while CPU convolution independently imposes at least 2 by 2.
 - Workspace allocation supports any positive 2D shape. Zero-sized dimensions
   are rejected before reductions, index arithmetic, or kernel launches.
 
@@ -78,9 +76,11 @@ in performance boundaries.
 ### Parameters and numerical semantics
 
 The initial public parameters are `sigma`, `low_threshold`, and
-`high_threshold`, plus backend, CPU CCL, workspace, and output-buffer selection
-as described below. CPU CCL selection uses `ccl=None`, `"scipy"`, or `"cc3d"`;
-`None` means the backend default and initially resolves to SciPy on CPU.
+`high_threshold`, plus backend, workspace, and output-buffer selection as
+described below. The specialized CCA is the CPU hysteresis implementation, not
+a public algorithm selector. The checked-in unfinished scaffold still exposes
+an older `ccl` argument for SciPy/cc3d; remove that argument and its generic
+labeling metadata during CCA integration before `canny` becomes public.
 
 - `sigma` is a finite scalar greater than or equal to zero. Zero skips
   Gaussian smoothing. Gaussian truncation is fixed at `4.0` rather than
@@ -99,15 +99,16 @@ as described below. CPU CCL selection uses `ccl=None`, `"scipy"`, or `"cc3d"`;
   later only through a separate scope decision.
 - Gaussian, Sobel, and NMS neighborhood reads use nearest/clamped-boundary
   semantics. Every NMS sample coordinate must be clamped at both its lower and
-  upper bound; the external prototypes' one-sided coordinate clamps are a
-  known out-of-bounds defect to correct during integration. There is no public
-  border-mode parameter initially.
+  upper bound; older external prototypes' one-sided coordinate clamps were a
+  known out-of-bounds defect. Verify the corrected reference behavior during
+  integration. There is no public border-mode parameter initially.
 
 The operator uses interpolation-based non-maximum suppression followed by the
-scikit-image-style CCL decomposition of double hysteresis: label the
-low-threshold mask, identify components containing at least one high-threshold
-pixel, and keep those components. This is a shared high-level contract, not a
-requirement that CPU and GPU use identical CCL algorithms.
+scikit-image-style double-hysteresis predicate: keep a low-threshold candidate
+pixel exactly when its 8-connected candidate component contains at least one
+high-threshold pixel. Dense consecutive component IDs and a relabeled image are
+not required outputs. This is a shared high-level contract, not a requirement
+that CPU and GPU use identical CCA algorithms or synchronization.
 
 Flat inputs follow the ordinary operator path rather than a separate
 image-level fast path. Zero gradient magnitude must be handled locally without
@@ -136,11 +137,8 @@ The public backend choices are `"auto"`, `"cpu"`, and `"gpu"`.
   NumPy input, fails instead of copying the array.
 - An explicit unavailable GPU request fails clearly and never silently retries
   on CPU.
-- The CPU-only CCL names `"scipy"` and `"cc3d"` are invalid for GPU execution;
-  the initial custom GPU CCL remains the GPU default rather than another public
-  selection.
-- The CPU path must import and run without CuPy, cuCIM, hipCIM, or the optional
-  cc3d binding installed.
+- The CPU path must import and run without CuPy, cuCIM, or hipCIM installed and
+  must not depend on cc3d.
 
 A future CLI may perform explicit, separately timed transfers before invoking
 the operator. Those transfers are not part of the device-resident Canny
@@ -150,10 +148,9 @@ boundary.
 
 The initial CPU integration groups its reusable scratch arrays behind a
 `CpuWorkspace` dataclass created by `create_cpu_workspace`. The factory owns
-the details of allocating compatible intermediate buffers and associating the
-workspace with its selected CPU CCL implementation. The exact buffer fields
-remain private implementation details and may preserve deliberate storage
-reuse where stage lifetimes do not overlap.
+the details of allocating compatible intermediate buffers for specialized CCA.
+The exact buffer fields remain private implementation details and may preserve
+deliberate storage reuse where stage lifetimes do not overlap.
 
 `create_cpu_workspace` accepts any positive two-dimensional shape because it
 does not receive `sigma` and allocation itself has no convolution-radius
@@ -166,7 +163,7 @@ dimensions. The subsequent workspace path is explicit:
 - If `workspace is None`, the operator constructs a temporary compatible
   workspace only after that validation.
 - If the caller supplies a workspace, the operator constructs nothing; it
-  validates that workspace's backend, shape/capacity, dtype, and CCL metadata
+  validates that workspace's backend, shape/capacity, dtype, and CCA metadata
   against the already validated call, then borrows it for execution.
 
 The `workspace` argument is optional. After validating the public arguments
@@ -176,22 +173,11 @@ workspace when `workspace is None`; CPU construction uses
 second non-workspace execution path. A temporary workspace lives only for that
 call and is neither returned nor attached to the result.
 
-The `ccl` and `workspace` arguments are mutually exclusive when a CCL name is
-explicitly supplied:
-
-- `workspace=None, ccl=None` constructs a workspace using the backend default;
-- `workspace=None, ccl="scipy"` or `ccl="cc3d"` constructs a CPU workspace for
-  that explicitly requested implementation;
-- a supplied workspace with `ccl=None` uses the implementation already
-  associated with that workspace; and
-- supplying both a workspace and a non-`None` CCL name raises `ValueError`.
-
-This rule requires `None`, rather than `"scipy"`, as the default value of the
-public `ccl` argument. An unavailable explicitly selected cc3d binding raises
-`RuntimeError`; installing or importing it never silently changes the default.
-The public Canny parameter does not map names directly to Python modules. The
-implementation should resolve a name through a narrow strategy interface that
-accounts for the label dtype and label-index space needed by its workspace.
+The current unfinished scaffold's `ccl`/workspace mutual-exclusion behavior is
+tested only as a record of transitional code. Remove the `ccl` selector,
+generic labeling callable/dtype metadata, and obsolete label buffers when the
+specialized CCA workspace is integrated; do not carry them into the exported
+contract.
 
 Calls that omit a workspace include temporary allocation costs. Calls supplied
 with a compatible reusable workspace form the preallocated/steady-state timing
@@ -225,14 +211,10 @@ an equivalent backend-specific workspace rather than put host and device
 arrays into one object. Do not repeatedly reorganize either workspace merely
 for tidiness after the ownership and lifetime rules are established.
 
-`edges_kept_bool_mask`, the one-dimensional table that maps component labels
-to the keep/discard decision, is a deliberate exception to CPU workspace
-preallocation. When hysteresis needs it, allocate it dynamically from the
-current labeling result's required label-index range. Do not reserve it at a
-full-image-derived capacity in `CpuWorkspace`: the working assumption is that
-this table will usually not consume a majority fraction of the full image
-footprint. This allocation remains part of Canny execution timing and should be
-revisited only if representative measurements disprove the assumption.
+The current generic-labeling scaffold's `edges_kept_bool_mask` policy is
+historical implementation state. Specialized CCA carries component strong
+state in its own representation and must not preserve that temporary merely
+for compatibility with the older workspace layout.
 
 ### Failures
 
@@ -242,17 +224,15 @@ into exit statuses.
 Validate caller-controlled invariants once at the narrowest public or object
 construction boundary that owns them. `canny` owns validation of its image,
 parameters, output, backend/residency selection, and workspace compatibility;
-`rgb_to_grayscale` owns its separate input/output contract; and workspace and
-CCL constructors own their construction arguments and optional dependency
-selection. Private numerical stages and compiled kernels may rely on those
-established invariants and should not duplicate the same full-array checks.
+`rgb_to_grayscale` owns its separate input/output contract; and workspace
+constructors own their construction arguments. Private numerical stages and
+compiled kernels may rely on those established invariants and should not
+duplicate the same full-array checks.
 
 - `TypeError`: unsupported array implementation or dtype, and backend-residency
   mismatches.
 - `ValueError`: invalid shape, non-finite or out-of-range image values, invalid
-  sigma or thresholds, an unknown or incompatible CCL selection, an
-  incompatible output/workspace shape, or simultaneous explicit `ccl` and
-  `workspace` selection.
+  sigma or thresholds, or an incompatible output/workspace shape.
 - `RuntimeError`: an explicitly requested backend or optional implementation
   is unavailable.
 
@@ -292,28 +272,19 @@ merely as a precaution. Tests should first establish whether backend rounding
 can escape `[0.0, 1.0]`; add a correctness measure only if evidence requires
 it.
 
-## CPU CCL selection
+## CPU hysteresis integration transition
 
-SciPy CCL remains the supported default CPU direction. The optional custom
-nogil/preallocated cc3d binding is experimental and must be selected
-explicitly; merely importing it must not change execution behavior.
+The current refined direction is a specialized row-partitioned CPU CCA with
+parallel local unions, explicit seam reconciliation, component strong-pixel
+state, and direct Boolean emission. This replaces the earlier plan to make
+generic SciPy CCL the default and prefer an optional nogil/preallocated cc3d
+binding for the optimized comparison.
 
-The initial integration should establish the SciPy path and the narrow CCL
-strategy boundary first. The cc3d binding and build scaffolding should then be
-reviewed and integrated as a separate change within the refined CPU roadmap
-item. Selection should resolve to a callable strategy or similarly narrow
-interface, not a dictionary of module objects or an availability global.
-Because an implementation may use sparse label identifiers, its component
-count must not be assumed to equal its maximum label identifier; workspace
-sizing and label-retention logic must honor the strategy's actual label-index
-space.
-
-When the binding is available, the primary optimized CPU-versus-GPU benchmark
-should prefer the cc3d CPU path so that the comparison uses specialized
-hysteresis implementations on both sides. The SciPy result should remain a
-clearly labeled supplementary or appendix result. This improves the
-engineering comparison but does not make it architecture-pure: the CPU and GPU
-still use different CCL algorithms and expose different parallelism.
+The checked-in workspace and dispatch scaffold still records `"scipy"` and
+`"cc3d"` strategies. That machinery is superseded: remove the public selector,
+generic label buffers/callables, optional cc3d path, and related dependency
+surface while integrating specialized CCA. Preserve the older code's evidence
+and provenance in documentation rather than retaining it as a runtime fallback.
 
 ## CPU threading
 

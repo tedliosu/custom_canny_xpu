@@ -18,10 +18,10 @@ behavior in the recorded configurations; they do not by themselves prove a
 cache, instruction-throughput, occupancy, register-pressure, or memory-system
 bottleneck.
 
-## Refined prototype filtering topology
+## Refined prototype generations
 
-The reviewed CPU prototype uses a generic Numba separable convolution with
-`parallel=True`, `nogil=True`, and `fastmath=True`. It performs horizontal and
+The earlier reviewed CPU prototype uses a generic Numba separable convolution
+with `parallel=True`, `nogil=True`, and `fastmath=True`. It performs horizontal and
 vertical 1D passes with explicit nearest-boundary indexing and reusable
 intermediate/output buffers. It does not perform an explicit full-frame
 `np.pad` for blur or gradients. The latest reviewed variant keeps a direct
@@ -45,7 +45,7 @@ contains two separable Sobel operations, a separate parallel Numba
 `sqrt(x*x + y*y)`-style magnitude pass, and a NumPy full-array maximum
 reduction.
 
-The reviewed GPU prototype uses:
+The earlier reviewed GPU prototype uses:
 
 - `cupyx.scipy.ndimage.gaussian_filter` with `mode="nearest"`, `truncate=4.0`,
   and preallocated output, followed by a CuPy clip;
@@ -62,6 +62,42 @@ specialization, compiler-visible loops and indexing, skipped zero footprint
 entries, and ordinary compiler/runtime optimization. If this source is linked
 later, use the applicable tagged version rather than GitHub's moving `main`
 branch.
+
+The newer Oct. 22 external CPU/GPU references retain the separable filtering
+direction but remove both the post-blur clip and per-image maximum-magnitude
+normalization. They also use corrected interpolated NMS and specialized CCA
+hysteresis. Those files remain external integration references rather than
+implementation evidence for this checkout, and their complete correctness and
+performance evidence is pending refresh. Do not apply the older pass model or
+stage ratios to them merely by subtracting the removed reduction.
+
+## Numba compilation and cache state
+
+A later controlled investigation found that affected Numba `parallel=True`
+kernels can execute different physical parfor/gufunc copies after fresh JIT
+compilation and after disk-cache loading. In the investigated path, a fresh
+consumer could bind to an earlier standalone copy, while a cache-loaded
+consumer used the copy embedded and reoptimized in the main object. Reversible
+call-target redirection changed a minimal one-thread case from about 659 ms to
+212 ms and a `separable_conv2d(..., taps=1)` case from about 73 ms to 27 ms;
+undoing the redirect restored the slower timings, with identical outputs.
+
+A reduced llvmlite/MCJIT duplicate-symbol experiment reproduced the relevant
+load-order behavior. Marking the embedded copies `internal` also reproduced the
+faster path in an independent Numba 0.68.0 environment. This supports the
+mechanism, but internal linkage is an experimental proof/mitigation rather than
+a vetted Numba patch and must not be enabled by default in this project.
+
+Consequently, older convolution tables that do not record fresh-versus-cache
+state are provisional for algorithm or architecture comparisons, especially
+the one-thread naive-versus-register-blocked results. They are not all declared
+false: all-thread bandwidth-bound conclusions may survive, and raw measurements
+remain historical evidence for the regime actually run. Controlled reruns must
+match cache/JIT state across variants and record Numba/llvmlite/LLVM versions,
+compiler and cache options, process/warmup policy, thread count, and threading
+layer. One clean baseline is `cache=False` in a fresh process, compile once,
+discard that call, then time steady state; cache-loaded behavior should be
+reported as a separate regime.
 
 ## NumPy versus CuPy maximum reduction
 
@@ -91,6 +127,44 @@ than replacing `np.max()` on the assumption that it is inherently broken.
 The 14–15x GPU/CPU ratio reflects the complete reduction executions and memory
 systems. It is not evidence that NumPy is poorly implemented, nor does it alone
 explain the roughly 20–23x refined gradient-stage ratio.
+
+## TheBandwidthBenchmark as a tentative Canny proxy
+
+[HPC-Dwarfs' TheBandwidthBenchmark](https://github.com/HPC-Dwarfs/TheBandwidthBenchmark)
+provides matched CPU/GPU streaming kernels with explicit load, store, and
+write-allocate patterns. Now that the refined CPU direction parallelizes both
+regular stages and specialized CCA sufficiently to approach hardware-limited
+memory behavior, this benchmark is the tentative coarse proxy for anticipating
+CPU/GPU Canny speedup. It supersedes the copy/label/NMS-lite script as the
+current proxy direction; that older script remains historical operator-class
+evidence.
+
+In the recorded Ryzen 7 5700X / RTX 5000 Ada experiment, the benchmark's CPU
+store kernels converged near 35.5–36 GB/s of write-allocation-adjusted traffic
+at 16 threads, while representative GPU kernels were roughly 480–545 GB/s.
+Depending on whether a kernel overwrote a separate output or updated already
+loaded storage, observed GPU/CPU ratios ranged from roughly 13.6–14.7x for
+no-extra-write-allocation cases into roughly 18–30x for write-allocate-affected
+cases. An external specialized Canny generation measured about 18.5x under one
+configuration. That proximity motivates the proxy; it is not yet a validated
+predictive formula for the integrated operator.
+
+Use an appropriate mix or range of streaming kernels rather than selecting one
+favorable bandwidth number. CPU write allocation, non-temporal stores, thread
+count, affinity, working-set size, memory domains, GPU launch parameters, and
+compiler choices can all change the comparison. Match the benchmark and Canny
+environment and dimensions where practical, and recompute the proxy whenever
+the operator generation or stage mix changes.
+
+The most important mismatch is hysteresis. Specialized CCA can perform sparse
+or scattered parent/root accesses, topology-dependent root chasing, seam work
+on CPU, and atomics/contention on GPU. These are not represented by contiguous
+streaming kernels. Filtering footprint, arithmetic and address generation,
+cache reuse, NMS gathers, synchronization, and materialization choices also
+remain outside a pure bandwidth proxy. Report TheBandwidthBenchmark as a
+first-order hardware-throughput expectation, then explain deviations with
+stage timings and connectivity/content evidence rather than claiming it
+exactly predicts Canny.
 
 ## Exploratory CPU suspect operations
 
@@ -136,6 +210,12 @@ ChatGPT generated this benchmark in one pass from the maintainer's request.
 The first sweeps below used the original direct vertical loop. A later
 eight-output register-blocked rerun is recorded separately rather than silently
 replacing this evidence.
+
+The original records did not consistently capture whether each Numba kernel
+was freshly compiled or loaded from disk cache. Preserve the raw timings as
+historical measurements, but treat cross-strategy, single-thread, and generated
+code conclusions as provisional until matched-state reruns account for the
+gufunc-resolution finding above.
 
 | `sigma` | Radius | 1D width |
 | ---: | ---: | ---: |
@@ -366,6 +446,11 @@ cache, frequency, scheduling, SMT, or memory-system mechanism.
 
 ### Full-Canny validation of the blocked implementation
 
+These external-prototype runs did not consistently record fresh-JIT versus
+cache-loaded state. Treat their output-equality checks as correctness evidence
+for the compared outputs and their timings as provisional for quantitative
+strategy claims until a matched-state rerun.
+
 The CPU prototype adopted one global convolution implementation for Gaussian
 and Sobel: direct horizontal, eight-output blocked vertical interior, scalar
 vertical tail, and the existing border logic. This deliberately avoids a
@@ -409,11 +494,19 @@ different CPU such as the AMD DevCloud Xeon VM, sanity-check the selected path
 and report any differing behavior rather than assuming Zen 3 or Tiger Lake
 results transfer.
 
-## Relevance to the Canny observations
+A later revised-operator run also showed an abnormally slow Gaussian stage on
+a smaller image on the Ryzen 7 5700X. That result is pending investigation and
+must not be used as a representative current end-to-end point. Check shape,
+thread count, affinity/threading layer, warmup and process state, JIT/cache
+state, selected convolution, timing boundaries, and fresh-process
+reproducibility independently of the simultaneously changed hysteresis code.
 
-For the named 23.23 MP Canny workload, representative warm RTX 5000 Ada stage
-ratios remain approximately 40x blur, 20–23x gradients, 40x NMS, 30–35x
-hysteresis, and 30x overall. The gradient ratio is not 40x. Its two Sobel
+## Historical relevance to the Canny observations
+
+For the named 23.23 MP Canny workload, an earlier normalized/generic-label
+generation reported approximately 40x blur, 20–23x gradients, 40x NMS,
+30–35x hysteresis, and 30x overall. These are historical ratios, not evidence
+for the Oct. 22 CCA generation. The gradient ratio was not 40x. Its two Sobel
 filters, magnitude arithmetic and square root, and maximum reduction make it
 more than a bandwidth stream. The independent maximum benchmark's 14–15x
 ratio does not by itself explain the complete gradient result.

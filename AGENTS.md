@@ -138,8 +138,8 @@ useful.
 
 The maintainer has limited time while completing a master's program. Prefer
 small, reproducible, high-leverage changes. Continue performance tuning only
-when there is a specific testable hypothesis and bounded cost. Treat a new CCL
-algorithm, general framework, or broad infrastructure rewrite as a separate
+when there is a specific testable hypothesis and bounded cost. Treat a general
+CCL algorithm, framework, or broad infrastructure rewrite as a separate
 scope decision.
 
 ## Editing and approval workflow
@@ -216,8 +216,8 @@ term is materially useful.
 
 The Canny operator accepts only a two-dimensional, finite, `[0, 1]` float32
 grayscale array. It consists of Gaussian filtering, Sobel gradients,
-interpolation-based NMS, CCL-based double hysteresis, and reusable workspace
-management. RGB-to-grayscale conversion is a separate composable operator.
+interpolation-based NMS, connectivity-based double hysteresis, and reusable
+workspace management. RGB-to-grayscale conversion is a separate composable operator.
 scikit-image is the primary semantic reference, but the custom operator is not
 assumed to match every scikit-image or OpenCV behavior exactly. Treat
 `docs/operator-contract.md` as the durable detailed API contract.
@@ -232,18 +232,15 @@ Prefer backend-appropriate implementations of a shared high-level contract.
 Fair CPU/GPU comparison does not require identical low-level algorithms or
 source structure.
 
-The refined CPU direction may use NumPy, Numba, SciPy, and reusable workspaces.
-SciPy CCL is the default direction. A custom nogil Cython/cc3d binding remains
-optional and experimental; releasing the GIL does not establish that cc3d is
-universally faster than SciPy. Select cc3d explicitly rather than through an
-availability global that silently changes execution. When available, prefer
-the nogil/preallocated cc3d path for the primary optimized custom CPU-versus-GPU
-benchmark, with the SciPy result labeled as supplementary or appendix context.
-The public `ccl` argument defaults to `None`, meaning the backend default, and
-is mutually exclusive with an explicitly supplied workspace. A CPU workspace
-records its selected CCL implementation; do not accept a second CCL selection
-that could disagree with it. Resolve CCL names through a narrow callable
-strategy boundary rather than storing implementation modules in a registry.
+The current refined CPU direction may use NumPy, Numba, and reusable
+workspaces. Its intended hysteresis path is a specialized, row-partitioned CCA
+that performs local unions, reconciles strip seams, carries component
+strong-pixel state, and emits the Boolean result without dense consecutive
+relabeling. The checked-in SciPy-default/optional-cc3d strategy scaffold is an
+older unfinished integration generation, not evidence that those paths remain
+the intended default. Remove the public `ccl` selector, generic labeling
+buffers/callables, and cc3d dependency surface while integrating specialized
+CCA. Preserve the superseded path only as historical evidence and provenance.
 
 For the unbatched CPU operator, use the full logical-core worker set made
 available to the process and numerical runtime wherever a stage exposes CPU
@@ -255,9 +252,13 @@ future batch/video design, where frame-level and inner-operator parallelism can
 interact.
 
 The refined GPU direction may use CuPy/CuPyX, `ElementwiseKernel`,
-runtime-compiled CUDA/HIP-compatible code, custom CCL operations, and reusable
+runtime-compiled CUDA/HIP-compatible code, custom CCA operations, and reusable
 device workspaces. CuPy should remain useful on both CUDA and ROCm where the
 required features work. Do not describe a CUDA pass as ROCm acceptance.
+Keep the tested 64-bit GPU parent/label mode available as low-cost future
+proofing for larger flattened index domains, while retaining the narrower
+default path. This does not authorize batching architecture work before the
+single-image operator is stable.
 
 Prefer reducing redundant materialization and full-image passes, reusing
 buffers, using separable operations where appropriate, and computing local
@@ -279,11 +280,11 @@ Sobel both use that implementation. Do not add a second simple convolution,
 footprint switch, CPU-model dispatcher, packing strategy, transpose strategy,
 or explicit-SIMD variant without a new bounded scope decision. The block size
 does not impose an eight-pixel width minimum because the scalar tail handles
-narrower inputs. The GPU prototype uses CuPyX Gaussian and Sobel filters,
-followed by ordinary CuPy clip and magnitude operations. Both external drafts
-still contain a per-image maximum reduction used for magnitude normalization;
-remove that normalization during integration to satisfy the absolute-threshold
-contract. Do not attribute historical timings to explicit `pad` passes or
+narrower inputs. The Oct. 22 GPU prototype uses CuPyX Gaussian and Sobel
+filters followed by ordinary CuPy magnitude operations. The current CPU/GPU
+references remove the earlier post-blur clip and per-image maximum reduction;
+do not carry either operation into integration. Do not attribute historical
+timings to explicit `pad` passes or
 describe those CuPyX filters as custom repository kernels.
 
 CuPyX filtering can perform well through generated elementwise kernels with
@@ -294,16 +295,13 @@ moving `main` branch. Distinguish source inspection from profiler evidence and
 do not assert the exact cache, instruction, occupancy, or memory bottleneck
 without appropriate measurements.
 
-The refined CPU/GPU prototype comparison is meaningful but not
-architecture-pure: its CPU CCL exposes less multicore parallelism than its
-custom GPU CCL.
-Do not present that asymmetry as either a perfectly fair hardware comparison or
-an obvious unfinished loop optimization. Serious multicore CCL can require
-partitioning, label-range management, border-equivalence merging, and a
-specialized solver. A major algorithmic change to one backend needs a
-meaningful counterpart, analogue, or explicit justification on the other when
-it materially changes the comparison. Deep cross-backend CCL redesign is a
-separate scope decision.
+The older refined CPU/GPU comparison was not architecture-pure because its CPU
+generic CCL exposed less multicore parallelism than its custom GPU CCL. Keep
+that limitation attached to those historical measurements. The newer
+partitioned CPU CCA intentionally pursues more parallel execution and a fairer
+comparison, but its scaling, seam cost, and complete current-generation
+evidence must be measured rather than assumed. Do not turn that bounded design
+into a general CCL framework or require identical CPU/GPU synchronization.
 
 ## Alpha artifact policy
 
@@ -361,6 +359,10 @@ not decide them implicitly while doing unrelated work.
   CLI status, unless a reviewed contract calls for something else.
 - Standardize repeated choices when doing so clarifies semantics, but do not
   perform broad style churn without a concrete benefit.
+- In numerical kernels, balance concise conventional names with algorithmic
+  clarity. Keep framework-defined names such as CuPy `ElementwiseKernel`'s `i`
+  where appropriate; do not mechanically expand every short variable or retain
+  opaque names when a modestly longer one materially helps comprehension.
 - Group related workspace arrays behind an explicit object only after their
   ownership and lifetime contract is clear.
 - Keep output buffers separate from temporary workspaces. Returned output must
@@ -370,11 +372,11 @@ not decide them implicitly while doing unrelated work.
   backend-appropriate workspace after validation and backend resolution, then
   executes through the same internal path used for a reusable workspace.
   Distinguish allocation-inclusive calls from reusable-workspace timing.
-- Keep `edges_kept_bool_mask` as a deliberate dynamically allocated exception
-  to CPU workspace reuse. Allocate it when hysteresis needs it and size it from
-  the current result's required label-index range; do not reserve a
-  full-image-sized retention vector in `CpuWorkspace`. This policy assumes the
-  vector will usually not occupy a majority fraction of the image footprint.
+- In the generic-labeling scaffold, keep `edges_kept_bool_mask` as a deliberate
+  dynamically allocated exception to CPU workspace reuse and size it from the
+  current result's label-index range. Do not preserve that temporary merely for
+  compatibility if specialized CCA carries the strong predicate in its parent
+  representation.
 - Treat workspace buffers as private implementation state. Normal first use and
   reuse must initialize every scratch value that a call reads, so call `n + 1`
   does not depend on call `n`. Caller replacement, resizing, retyping, or
@@ -472,7 +474,7 @@ small purpose-specific subsets: correctness cases cover semantic behavior,
 performance cases cover distinct workload shapes, and deep profiling is
 reserved for diagnostically useful cases or outliers. Do not make every
 candidate class mandatory or form a combinatorial matrix across resolutions,
-parameters, backends, CCL implementations, timing boundaries, and profiler
+parameters, backends, hysteresis implementations, timing boundaries, and profiler
 configurations. Do not assume random/noise input is a worst case or that a long
 geometric path necessarily produces difficult union-find parent trees. Record
 foreground density and component/connectivity characteristics when practical;
@@ -531,8 +533,8 @@ Every performance claim must preserve the relevant distinctions among:
 
 Routine Canny benchmark reports should include the final edge-pixel fraction
 where practical. Weak/strong candidate fractions, component counts and size
-distributions, convergence/pass counts, CCL-kernel-only timing, and detailed
-profiler counters are targeted CCL diagnostics, not requirements for every
+distributions, convergence/pass counts, CCA-kernel-only timing, and detailed
+profiler counters are targeted connectivity diagnostics, not requirements for every
 benchmark. Prefer reporting a range across tested connectivity classes,
 representative natural-image performance, and stage-level explanations for
 outliers over presenting one synthetic image as a universal worst case.
@@ -543,6 +545,17 @@ block boundary; apply the same block structure to CPU measurements when
 practical. Do not report coarse logical bytes-per-pass estimates as literal
 DRAM bandwidth.
 
+For affected Numba `parallel=True` kernels, fresh compilation and cache loading
+may bind calls to different physical parfor/gufunc copies. Record Numba,
+llvmlite, LLVM and Python versions as relevant; compiler/cache options; whether
+the timed process compiled or loaded cache; warmup; process boundary; threading
+layer; and thread count. Compare variants only under matched state. A clean
+fresh baseline may use `cache=False` in a fresh process, discard the compilation
+call, and time steady state; characterize cache-loaded behavior separately.
+Do not ship the experimental embedded-gufunc internalization workaround by
+default. Any diagnostic use must be opt-in, version-checked, use an isolated
+cache, assert that it changed the intended symbols, and validate outputs.
+
 Treat reduction and stencil microbenchmarks as operation-class evidence, not
 whole-operator predictors. A logical-tap or input-payload throughput can exceed
 or differ from physical memory traffic because of cache reuse and reduction
@@ -551,16 +564,25 @@ stage speedup. Report filter footprint as well as image size, and compare GPU
 platforms without assigning a difference to microarchitecture alone when
 generation, resource count, cache, memory, power, clocks, or software differ.
 
-Treat the copy/label/NMS-lite proxy as a coarse streaming, regular-local, and
-irregular-connectivity motif probe, not an exact Canny model. Its historical
-approximately 21.7x harmonic estimate used now-stale CPU stage fractions and
+Use HPC-Dwarfs' TheBandwidthBenchmark as the tentative first-order CPU/GPU
+Canny speedup proxy now that specialized CPU CCA is intentionally parallel.
+Compare a workload-appropriate range or mix of streaming kernels under matched
+hardware/software and current operator conditions; do not select one favorable
+bandwidth ratio. State that sparse/scattered CCA parent accesses, topology,
+root chasing, CPU seams, GPU atomics/contention, stencil reuse, NMS gathers,
+and synchronization are not represented by contiguous streaming kernels.
+Validate the proxy descriptively against actual current Canny rather than
+claiming an exact prediction.
+
+Treat the historical copy/label/NMS-lite proxy as a coarse streaming,
+regular-local, and irregular-connectivity motif probe, not an exact Canny
+model. Its historical approximately 21.7x harmonic estimate used now-stale CPU stage fractions and
 must not be presented as current predictive evidence. The harmonic form
 `1 / sum(f_i / S_i)` remains valid only when its stage fractions and class
 speedups come from the matched baseline being discussed. Any future numerical
-comparison should match current revisions, dimensions, dtype, relevant
+reconstruction should match the original revisions, dimensions, dtype,
 parameters, timing and allocation boundaries, and broad content/connectivity
-class. Even then, describe the comparison as approximate and do not require it
-for ordinary Canny benchmarking.
+class. Do not revive it as the current proxy merely to update the old number.
 
 Treat CPU ISA-control results as workload- and compiler-specific evidence. An
 assembly change establishes that code generation changed, but not which exact
@@ -632,10 +654,9 @@ variables scoped to the relevant command, environment, or repository wrapper.
 Do not edit shell startup files, `/etc/ld.so.conf*`, or run system-wide
 `ldconfig` for this project without an explicit separate decision.
 
-The code must not assume CuPy, cuCIM, hipCIM, or the optional cc3d binding is
-installed. Import the CPU path cleanly without them. Do not vendor or
-automatically clone cc3d. Require an explicit external source path for its
-optional build and preserve its LGPL boundary and notices.
+The code must not assume CuPy, cuCIM, or hipCIM is installed. Import the CPU
+path cleanly without them. Do not vendor, clone, build, or integrate the
+superseded LGPL cc3d path.
 
 Generated Cython C/C++, object files, extension modules, benchmark images, and
 other local artifacts are not source-of-truth inputs unless deliberately added
@@ -644,18 +665,15 @@ under a reviewed repository policy.
 Keep narrow, throwaway diagnostic microbenchmarks outside the repository by
 default. Preserve their durable findings, boundaries, and provenance in
 documentation without turning this checkout into an informal experiment
-workspace. The compact copy/label/NMS-lite operator-class proxy is the only
-current candidate exception because it may serve as a reusable benchmark; add
-it only through a separate reviewed decision. Do not import other external
-proxy scripts merely because their results are documented here. Keep that
-proxy small and independent: do not duplicate Canny filtering, NMS,
-hysteresis preprocessing, validation, dispatch, workspaces, or orchestration
-to improve realism. A few deterministic source images may be shared with real
-Canny runs, with a trivial proxy-only threshold used to form approximate CCL
-workloads; the proxy mask need not reproduce a Canny intermediate. Before
-materially changing the current external unversioned script, preserve one
-`.bakN` copy. If a proxy is later version-controlled here, use Git history
-rather than adding backup files to the repository.
+workspace. The compact copy/label/NMS-lite operator-class proxy is historical;
+do not import or elaborate it merely because its results remain documented.
+TheBandwidthBenchmark is an external, maintained benchmark used as a tentative
+comparison tool, not code that this repository must vendor or turn into a
+general harness.
+
+The proxy's generic-label workload is historical and does not model the current
+specialized CCA predicate. Do not restore it as a principal quantitative model
+merely to align old documentation with new operator results.
 
 ## Provenance and LLM assistance
 
@@ -669,15 +687,21 @@ it was adapted from the then-current scikit-image main branch and was in use by
 May 16, 2025. The exact upstream commit was not recorded and is considered
 irrecoverable unless new primary evidence appears. Preserve that uncertainty;
 do not substitute a convenient release tag or a later matching revision.
+Credit scikit-image's vectorized CCL hysteresis as formative inspiration for
+making the component-level strong-pixel predicate explicit, even though the
+specialized CPU CCA now uses different data structures and execution. Do not
+describe the current partitioned union/seam implementation as copied from
+scikit-image without source evidence.
 
 Prefer implementation from reviewed requirements and primary documentation.
 By default, use the smallest explicit backend-specific compatibility shim
 needed. Avoid cosmetically rewriting possibly copied code, hidden vendoring,
 or adding third-party license headers without understanding why they apply.
 
-The refined CCL implementation is a deliberate repository-specific exception:
-it is expected to derive from CuPy 14.1.x-era upstream source and to vendor the
-required templated traits with the derived kernels. Preserve the upstream
+The refined GPU atomic-union implementation is a deliberate
+repository-specific exception: it is expected to derive from CuPy 14.1.x-era
+upstream source and to vendor the required templated traits with the derived
+kernels. Preserve the upstream
 structure when needed for correctness and CUDA/ROCm portability, record the
 exact source revision, and update `THIRD_PARTY_NOTICES.md` in the same change.
 Do not generalize this decision into a preference for recreating template
@@ -718,9 +742,11 @@ cuCIM/hipCIM is a useful directly interoperable GPU reference where available.
 Kornia may be useful PyTorch-native context but need not be a primary baseline.
 NVIDIA NPP/NPP Plus and AMD RPP are relevant vendor-native prior art, not
 required dependencies, implemented backends, mandatory baselines, or
-publication prerequisites. Keep any standalone RPP presentation experiment
-outside this package unless a later explicit scope decision approves
-integration.
+publication prerequisites. The investigated ROCm 7.2.3 package does not export
+the legacy RPP Canny API, and the older implementation has CPU/GPU hysteresis
+and NMS semantic defects, so it is not the current presentation candidate or a
+same-semantics baseline. Do not restart or integrate an RPP experiment without
+a new concrete interface and scope decision.
 
 For ordinary usage, prefer mature libraries when they meet the required
 semantics and deployment constraints. The custom operator exists to study the

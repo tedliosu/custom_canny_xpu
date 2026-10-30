@@ -6,8 +6,9 @@ context, not reproducible benchmark results or current support guarantees.
 Regenerate important measurements from committed code under the README's
 benchmarking contract before citing them publicly.
 
-The refined CPU and GPU prototype observations in this document generally
-predate removal of per-image maximum-magnitude normalization. They remain
+Unless explicitly identified as the Oct. 22 generation, the refined CPU and
+GPU prototype observations in this document generally predate removal of
+per-image maximum-magnitude normalization. They remain
 historical evidence for those prototype generations, but they are not current
 performance, disagreement, stage-fraction, or cross-backend speedup evidence
 for the absolute-threshold operator. See
@@ -46,6 +47,35 @@ reusable workspaces. Their important difference is dataflow and materialization,
 not simply “vectorized Python versus a lower-level language.” Neither refined
 prototype materializes an explicit full-frame padded image for blur or
 gradients.
+
+An Oct. 22 external generation goes further: both backends implement
+hysteresis as specialized connected-component analysis (CCA), answering only
+whether each 8-connected low-threshold component contains a strong pixel. The
+reviewed filenames were
+`pseudo_cpu_canny_numba_partitioned_fused_cca_experiment_v26-10-22_2.py` and
+`pseudo_gpu_canny_cupy_fused_cca_experiment_v26-10-22_2.py`; names identify the
+reviewed generation but do not make those external files repository inputs. The
+CPU reference performs parallel strip-local unions, serial seam reconciliation,
+component strong-state merging, and direct Boolean emission. The GPU reference
+uses a CuPy-derived atomic union core with specialized threshold initialization,
+strong-root marking, and direct output; its preferred tested path omits a
+separate global parent-compression pass. Neither requires dense consecutive
+labels. These files remain external prototypes, so this is current design
+context rather than checked-in implementation status.
+
+The CPU prototype uses one-based flattened `uint32` parents and Boolean
+component flags. Exclusive strip ownership plus serialized seam work permits
+ordinary Boolean OR during CPU unions. The GPU uses an integer root-retention
+array so concurrent strong pixels can mark one root atomically. Its narrower
+parent mode remains the normal path, while an already tested 64-bit mode is
+retained as cheap future-proofing for larger flattened domains; this does not
+authorize premature batch design.
+
+Dedicated earlier CCA tests covered 148 GPU cases across compression choices,
+32/64-bit parents, singleton and connectivity edge cases, randomized inputs,
+and workspace reuse; CPU prototype checks compared against reference
+hysteresis. Those tests support the CCA substitution but do not replace
+full-operator validation after the Oct. 22 NMS and gradient corrections.
 
 That state was reached incrementally. A May 2026 suspect-operator proxy was
 prompted around padding, vertical convolution, and a serial BBDT-like scan, but
@@ -90,7 +120,7 @@ general correctness tolerance or exact semantic equivalence.
 
 ### Tiny-image constraint inspection
 
-On 2026-09-29, the latest external refined prototypes were identified from
+On 2026-09-29, the then-latest external refined prototypes were identified from
 their filenames, modification times, and contents as
 `pseudo_cpu_canny_numpy_mod9_nms_conv_kern_hyccl_fused_grey_prealloc_bconv_ski_fp32.py`
 and
@@ -120,7 +150,8 @@ workspace allocation has no `sigma` with which to enforce the operator
 requirement. That factory now accepts any positive 2D shape; the future public
 Canny boundary owns the active image/workspace compatibility check.
 
-The GPU stages have no corresponding footprint-derived minimum. RGB matrix
+Those sources predate the Oct. 22 specialized-CCA generation. The GPU stages
+have no corresponding footprint-derived minimum. RGB matrix
 multiplication, same-shaped workspaces, and CuPyX Gaussian and Sobel operations
 with nearest-boundary handling accommodate singleton axes. The custom CCL also
 has a valid one-pixel path by source inspection:
@@ -212,6 +243,14 @@ maps differed at 48 of 122,991,175 pixels, approximately 0.000039%. Preserve
 the device-only, transfer-inclusive, CPU-source-generation, and semantic
 boundaries when citing those results.
 
+Later work showed that fresh-JIT and cache-loaded Numba `parallel=True`
+kernels can resolve to different physical parfor/gufunc copies. The convolution
+records above did not consistently capture that state. Preserve them as
+historical observations, but treat one-thread and cross-strategy conclusions as
+provisional until reproduced with matched compilation/cache state. Detailed
+evidence and the current control protocol are in
+[`filtering-and-reduction-experiments.md`](filtering-and-reduction-experiments.md#numba-compilation-and-cache-state).
+
 The alpha CPU implementation took roughly 6.0 s for Canny on the 23.23 MP
 image, versus roughly 0.20–0.22 s for the refined prototype. The approximate
 25–30x change should be described as an architectural improvement involving
@@ -250,8 +289,7 @@ ratios were approximately 10.1x, 17.6x, 19.1x, and 28.5x respectively.
 This proxy was mostly ChatGPT-generated over several turns, with intermediate
 candidate scripts. All final measurements above came from one identified
 external script, `copy_label_and_nms_proxy_bench.py`. That source remains
-outside this repository pending a separate decision about whether this reusable
-operator-class proxy merits inclusion.
+outside this repository and is no longer a candidate repository harness.
 
 The suite samples streaming, regular local-neighborhood, and irregular
 connectivity workload classes; it does not predict full Canny exactly. The
@@ -288,18 +326,28 @@ harder than a real Canny workload. Random input is not an assumed worst case,
 one large component is not automatically difficult, and CPU and GPU CCL may
 respond differently to the same topology.
 
-The harmonic form itself remains useful when `f_i` is the current CPU
-baseline's time fraction and `S_i` is the currently measured class speedup. A
-future quantitative comparison should match:
+The harmonic form itself remains mathematically useful when `f_i` is a CPU
+baseline's time fraction and `S_i` is the matched class speedup. Any historical
+reconstruction or separately justified rerun would have to match:
 
 - CPU and GPU code revisions and the current CPU stage fractions;
 - dimensions, dtype, sigma or footprint, and relevant thresholds;
 - timing boundary and allocation/workspace policy; and
 - broad source-content and connectivity class.
 
-It should then measure current proxy ratios and actual Canny speedup under that
-setup and compare them descriptively. Such a comparison remains approximate
-and is not required for ordinary Canny benchmarking.
+It would then measure compatible proxy ratios and actual Canny speedup under
+that setup and compare them descriptively. The project no longer plans this as
+its current proxy direction.
+
+The current tentative proxy direction instead uses HPC-Dwarfs'
+[TheBandwidthBenchmark](https://github.com/HPC-Dwarfs/TheBandwidthBenchmark)
+as a first-order hardware-throughput model. The newer CPU CCA removes much of
+the old generic-labeling parallelism mismatch, making a matched streaming
+bandwidth range more relevant to the overall CPU/GPU comparison. It still does
+not model sparse/scattered CCA accesses, topology, root traversal, seam work,
+atomics, stencil reuse, or NMS gathers. See
+[`filtering-and-reduction-experiments.md`](filtering-and-reduction-experiments.md#thebandwidthbenchmark-as-a-tentative-canny-proxy)
+for the current evidence and reporting limits.
 
 The proxy's existing NMS-lite payload comment undercounts source-level logical
 accesses. Its kernel reads center, left, right, up, down, `gx`, and `gy`, then
@@ -316,8 +364,8 @@ device characteristics changed CPU/GPU ratios substantially. This reinforces
 using the proxy as an execution-motif probe rather than explaining the gap
 between its old 21.7x estimate and one full-operator result.
 
-If the proxy is refined, keep it small and inspectable rather than adding
-Gaussian, Sobel, interpolation NMS, Canny hysteresis preprocessing, internal
+An earlier refinement proposal would have kept the proxy small and inspectable
+rather than adding Gaussian, Sobel, interpolation NMS, Canny hysteresis preprocessing, internal
 artifact exchange, public validation, backend dispatch, or workspace logic. A
 lightweight option is to run both real Canny and the proxy on the same small
 deterministic family of source images, then derive the proxy label input with a
@@ -326,10 +374,9 @@ connected, and late-merge patterns are possible choices, not a mandatory
 matrix. The proxy mask is only broad workload-shape alignment and is not
 expected to match Canny's post-NMS low-threshold mask.
 
-Before a material behavior change to the current external unversioned script,
-make one `.bakN` backup so the old measurements remain reconstructable. If a
-proxy is later admitted to this Git repository, preserve the original through
-version history rather than an in-repository backup file.
+The associated preservation rule was to make one `.bakN` backup before changing
+the external unversioned script so the old measurements remained
+reconstructable. The script is no longer planned for repository admission.
 
 ### Allocation and first touch
 
@@ -370,8 +417,10 @@ universally faster than SciPy. SciPy with per-worker reusable output remains a
 strong default direction for CPU frame batching. The custom binding can remain
 an optional single-image or experimental path.
 
-cc3d is LGPL-licensed. Keep the custom binding/build logic separate, require an
-external source checkout, and do not vendor or automatically clone cc3d.
+cc3d is LGPL-licensed. The experiment therefore kept binding/build logic
+separate, required an external source checkout, and prohibited vendoring or
+automatic cloning. The specialized CCA decision now avoids integrating this
+dependency at all.
 
 The binding layer and much of its build/compilation scaffolding were
 substantially ChatGPT-assisted. The maintainer identified the public API's
@@ -385,7 +434,17 @@ The batch-32 SciPy/cc3d benchmark harness was also largely ChatGPT-generated
 and iterated over multiple LLM turns. Preserve that distinction from the
 maintainer's experimental design, execution, validation, and interpretation.
 
-### Why deeper CCL work stops here
+The later specialized CCA prototype made this generic-labeling comparison a
+historical baseline rather than the intended final path. Before the Oct. 22
+NMS/gradient corrections, reported CPU hysteresis improved from about 75.4 ms
+with the prior cc3d-based path to 26.5 ms on a 23.23 MP image, and from about
+568.5 ms to 239.3 ms at 122.99 MP. The corresponding GPU CCA no-compression
+path improved from about 2.05 ms to 1.35 ms and from about 12.5 ms to 8.33 ms.
+These results demonstrate promise for the strategy but are historical/pending
+revalidation for the current Oct. 22 operator generation; changed NMS alters
+the candidate-connectivity workload.
+
+### Why generic CCL work stopped, and what changed
 
 YACCLAB and *Parallel Light Speed Labeling: An Efficient Connected Component
 Labeling Algorithm for Multi-Core Processors* reinforce that CCL optimization
@@ -396,15 +455,19 @@ and some application-specific algorithms can accumulate component properties
 without producing a final dense label image.
 
 Canny hysteresis ultimately asks whether each weak-edge component contains a
-strong pixel, so a specialized design might reduce final label
-materialization. Implementing that idea would require major semantic and
-correctness work. Applying a deep run-based or tiled redesign to only the CPU
-would also distort the comparison; a meaningful counterpart could require
-GPU-local labeling, boundary equivalence merging, warp/wavefront-specific
-choices, and a new materialization strategy. That would make the project a
-comparative CCL study with Canny as a wrapper. The literature therefore
-supports the present stopping point rather than creating an implementation
-obligation.
+strong pixel. Earlier notes treated a specialized design as beyond the chosen
+stopping point. Subsequent bounded prototype work did implement that specific
+predicate on both CPU and GPU without turning the package into a general CCL
+framework. On CPU, the maintainer accepts the added partition/seam complexity
+to improve parallelism and comparison fairness and potentially remove the
+cc3d/Cython dependency path.
+
+This does not create an obligation to implement LSL, every YACCLAB algorithm,
+or a general cross-backend CCL suite. Light Speed Labeling literature is
+algorithmic inspiration for reducing materialization unless a later source
+audit establishes actual derivation. Current open questions are bounded to the
+specialized CCA's correctness, scaling, seam cost, topology sensitivity, and
+integration.
 
 ## CUDA GPU observations
 
@@ -479,9 +542,11 @@ ROCm bootstrap project, with the intent to test a small independently written
 primitive rather than imitate known third-party code. That intent is not a
 substitute for source review or a claim of provable originality.
 
-### Refined CCL vendoring decision
+### Refined GPU union vendoring decision
 
-The planned refined CCL kernels derive from CuPy 14.1.x-era upstream source.
+The planned refined GPU atomic-union mechanism derives from CuPy 14.1.x-era
+upstream source; the surrounding Canny-specific CCA dataflow is a separate
+project adaptation.
 For this repository, the selected approach is to vendor the required templated
 traits together with those kernels rather than depend on `cuda::std` and
 version-sensitive HIP-internal traits. This keeps the derived implementation
@@ -627,6 +692,23 @@ benchmark baselines, or publication prerequisites. Any future measurement must
 preserve its own dtype, residency, transfer, allocation, batching, and semantic
 boundaries rather than being merged directly with custom-operator evidence.
 
+The bounded follow-up RPP investigation narrows that status further. The
+legacy CPU hysteresis source contains an unconditional final zero store that
+clobbers attempted weak-edge promotion; AMD-shipped RPP 1.9.10 / ROCm 6.4.4
+x86-64 disassembly independently confirmed that behavior. The legacy GPU path
+performs only one-hop 8-neighbor promotion rather than transitive hysteresis,
+and legacy NMS uses fixed angular bins. The legacy host and GPU operators are
+therefore not mutually equivalent or semantic matches for this project.
+
+Package availability also differs from source presence: AMD-distributed RPP
+1.9.10 / ROCm 6.4.4 exports the legacy Canny APIs, while RPP 2.0.0 / ROCm 7.0.2
+and RPP 2.2.1 / ROCm 7.2.3 do not. A ROCm 7.2.3 source tree may still contain
+legacy-support Canny code even though the shipped package/binary does not
+expose it. These findings apply narrowly to legacy RPP Canny, not ROCm computer
+vision generally. RPP remains prior art, but it is not a viable same-semantics
+baseline or current 7.2.3 demonstration path; no runtime harness is required
+merely to reconfirm the source-and-binary-established CPU defect.
+
 Relevant primary project pages include the
 [cuCIM API index](https://docs.rapids.ai/api/cucim/legacy/genindex/),
 [official hipCIM repository](https://github.com/ROCm-LS/hipCIM),
@@ -683,23 +765,25 @@ stage measurements are sufficient. Vendoring reference source, patching
 site-packages, carrying forks, or using private APIs only to obtain matching
 stage breakdowns would add disproportionate maintenance and provenance cost.
 
-## Interpreting the CPU/GPU comparison
+## Interpreting the older generic-CCL CPU/GPU comparison
 
-The comparison is meaningful but not architecture-pure. Hysteresis is already
-a major wall-time component on both backends, while the CPU CCL direction does
-not exploit multicore parallelism as effectively as the regular stages and the
-custom GPU formulation exposes much more parallel work. Part of the observed
-speedup therefore reflects implementation parallelism rather than intrinsic
-hardware alone.
+That comparison was meaningful but not architecture-pure. Hysteresis was
+already a major wall-time component on both backends, while the CPU CCL
+direction did not exploit multicore parallelism as effectively as the regular
+stages and the custom GPU formulation exposes much more parallel work. Part of
+the observed speedup therefore reflects implementation parallelism rather than
+intrinsic hardware alone.
 
 This is not merely an unfinished obvious optimization. Eliminating the
 asymmetry rigorously leads into the deeper CCL designs discussed above and can
 increase provenance and semantic risk relative to the intended scikit-image
 decomposition: threshold weak and strong pixels, label 8-connected components,
-identify components containing a strong pixel, and retain them. The current
-implementations are sufficiently optimized for a bounded engineering
-comparison when this limitation is explicit; they are neither a perfectly
-fair hardware experiment nor a meaningless comparison.
+identify components containing a strong pixel, and retain them. Those
+implementations were sufficiently optimized for a bounded engineering
+comparison when this limitation was explicit; they were neither a perfectly
+fair hardware experiment nor a meaningless comparison. The later partitioned
+CPU CCA intentionally reduces this asymmetry, but its current scaling and
+cross-backend ratios remain pending revalidation.
 
 CPU remains valuable for deployment availability, CPU-resident applications,
 small and medium workloads where launch and transfer costs matter, debugging,

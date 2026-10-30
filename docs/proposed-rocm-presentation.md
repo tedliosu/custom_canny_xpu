@@ -60,29 +60,30 @@ If necessary, the demonstration may use bug-fixed CPU/GPU prototype scripts
 that remain external to this package. Their use must be disclosed accurately;
 it does not make them packaged functionality or current repository evidence.
 
-### Candidate standalone RPP demonstration
+### Investigated standalone RPP demonstration
 
-One tentative demonstration direction is a standalone host/device Canny
-example using AMD ROCm Performance Primitives (RPP) on the AMD Developer Cloud
-MI300X environment. This is a candidate, not the selected presentation plan.
-It must first pass a separately scoped feasibility and correctness smoke test.
-Initial exploration belongs in a separate development session outside this
-repository so presentation preparation does not become coupled to package
-integration.
+One tentative direction was a standalone host/device Canny example using AMD
+ROCm Performance Primitives (RPP) on the AMD Developer Cloud MI300X
+environment. The feasibility investigation found that the ROCm 7.2.3 shipped
+RPP package/binary does not export the legacy Canny API even though related
+legacy-support source remains visible. The older exported implementation also
+has material semantic defects: the CPU weak-edge promotion is clobbered, the
+GPU promotion is only one hop rather than transitive, and NMS uses fixed angle
+bins. RPP is therefore not the current demonstration candidate or a
+same-semantics baseline.
 
-If the experiment succeeds, the presentation may use RPP while
-`custom_canny_xpu` remains a distinct experimental ndarray-based operator
-study. If it fails or proves unsuitable, the separately maintained, validated
-CPU/GPU Canny prototypes remain possible alternatives. Neither outcome makes
-RPP an implemented package backend or requires its experiment to be imported
-into this checkout.
+This conclusion does not make RPP an implemented package backend and does not
+generalize to ROCm computer vision. If a materially different supported RPP
+interface appears, it would require a new bounded feasibility/correctness
+decision rather than silently reviving the old plan. Separately maintained,
+validated CPU/GPU Canny prototypes remain possible presentation alternatives.
 
-The RPP demonstration would own its own implementation contract and benchmark
-evidence. Host and GPU RPP paths must not be assumed to have identical
+Any future RPP demonstration would own its own implementation contract and
+benchmark evidence. Host and GPU RPP paths must not be assumed to have identical
 algorithms, optimization, or threading behavior, and their measurements are
 not interchangeable with this project's results without checking semantics,
 dtype, residency, transfer and allocation boundaries, batching, and timing
-scope. Selecting or rejecting this candidate does not start the separately
+scope. The completed RPP feasibility conclusion does not start the separately
 deferred validation-cost investigation.
 
 ## Scope and publication relationship

@@ -37,12 +37,15 @@ repository's visibility setting to communicate maturity.
   evolution. They are not the production fallback or the model for refined
   code.
 - **Operator-class proxy** means the compact copy/label/NMS-lite benchmark that
-  samples streaming, regular-local, and irregular-connectivity work. It is not
-  a Canny implementation or an exact predictor of Canny speedup.
-- **Optional experimental cc3d binding** means a custom binding to the external
-  `connected-components-3d` project that releases the GIL and supports reusable
-  output. SciPy remains the intended CPU default; the binding requires separate
-  integration, dependency, provenance, and licensing review.
+  historically sampled streaming, regular-local, and generic-labeling work. It
+  is not a Canny implementation, current harness candidate, or exact predictor.
+- **TheBandwidthBenchmark proxy** means the external HPC-Dwarfs streaming
+  benchmark used as a tentative first-order CPU/GPU Canny speedup expectation.
+  It does not model sparse/scattered CCA or replace current operator evidence.
+- **Historical cc3d binding** means the superseded custom binding to the
+  external LGPL `connected-components-3d` project. Specialized CPU CCA removes
+  the need to integrate or depend on it; its old experiments and provenance
+  remain useful history.
 - **ROCm cloud-bootstrap work** is separate environment bring-up and
   CUDA/HIP-compatibility experimentation. It is not contained in, required by,
   or a support claim of this repository.
@@ -100,10 +103,11 @@ in progress.
 
 Under that path, prioritize preparing and validating the actual demonstration
 instead of rushing incomplete functionality into `src/custom_canny_xpu`. The
-demonstration may use a separately maintained AMD RPP host/device experiment
-if it first passes its own feasibility and correctness smoke test, or bug-fixed
-CPU/GPU prototype scripts that are not yet integrated into this package.
-Documentation must identify either route as external experimental work rather
+demonstration may use bug-fixed CPU/GPU prototype scripts that are not yet
+integrated into this package. The investigated ROCm 7.2.3 RPP package does not
+export the legacy Canny API, whose older implementation also failed the needed
+semantic review, so RPP is not currently a viable Canny demonstration route.
+Documentation must identify that route as external experimental work rather
 than installed repository functionality and must distinguish its evidence from
 results reproduced from committed code.
 
