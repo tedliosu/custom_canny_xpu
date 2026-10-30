@@ -1,17 +1,17 @@
-# Proposed autumn 2026 ROCm presentation
+# Approved November 3, 2026 ROCm presentation
 
-The maintainer has proposed a presentation for the Ohio State Open Source Club
-in autumn 2026. Its date is not confirmed; the current club officers have not
-yet responded about scheduling. It is distinct from the maintainer's autumn
-2025 ROCm/OpenCV Canny presentation.
+The Ohio State Open Source Club approved this presentation around October 26,
+2026, and it is scheduled for November 3, 2026. It is distinct from the
+maintainer's autumn 2025 ROCm/OpenCV Canny presentation.
 
-Update this note if the club confirms a date, the proposal is withdrawn, or
-the intended demonstration scope materially changes.
-
-This note records the proposal so readers do not need access to earlier talks,
-private prototypes, cloud systems, or AI-assistant conversations to understand
-its relationship to this repository. It does not make the presentation an
-implementation milestone or certify any result as current.
+This note records the repository-owned relationship so readers do not need
+access to earlier talks, private prototypes, cloud systems, or AI-assistant
+conversations to understand the presentation. Presentation preparation now
+lives in a separate local-only repository and dedicated session. This canonical
+repository retains only the durable publication gate, project boundaries, and
+evidence constraints; it does not own talk-specific scripts or orchestration.
+The scheduled presentation does not make package integration a presentation
+milestone or certify any result as current.
 
 ## Purpose and audience
 
@@ -41,7 +41,7 @@ tradeoff.
 ## Environment and demonstration context
 
 The earlier 2025 presentation used an Azure Radeon Pro V710 environment. The
-proposed 2026 work reflects later access to MI300X environments through
+2026 work reflects later access to MI300X environments through
 HotAisle and AMD Developer Cloud. These names describe the history and planned
 demonstration context; they do not establish supported deployment targets for
 the package.
@@ -88,17 +88,18 @@ deferred validation-cost investigation.
 
 ## Scope and publication relationship
 
-The preferred publication target remains the documented and tested refined CPU
-operator. If this presentation is scheduled before that target can reasonably
-be completed, the repository should instead become public no later than
-presentation day as a clearly labeled experimental work in progress, subject
-to the same publication-safety review. See
-[`publication-readiness.md`](publication-readiness.md) for the complete trigger
-and checklist.
+The preferred publication readiness level remains the documented and tested
+refined CPU operator. Independently, the scheduled presentation activates the
+deadline: this repository must become public no later than November 3, 2026.
+If the CPU-first level cannot reasonably be reached by then, publish a clearly
+labeled experimental work in progress, subject to the same publication-safety
+review. See [`publication-readiness.md`](publication-readiness.md) for the
+complete gate and checklist.
 
-Preparing the presentation does not require completion of the refined GPU
-package, the broader GPU execution-motif study, the separate ROCm bootstrap
-work, integration of an RPP demonstration, or every planned benchmark. The
-optional validation-cost investigation described in
+Presentation implementation and orchestration stay in the separate local-only
+presentation repository. Preparing the presentation does not require
+completion of the refined GPU package, the broader GPU execution-motif study,
+the separate ROCm bootstrap work, integration of an RPP demonstration, or every
+planned benchmark. The optional validation-cost investigation described in
 [`operator-contract.md`](operator-contract.md#reference-disagreement) is
 likewise neither presentation work nor a publication prerequisite.

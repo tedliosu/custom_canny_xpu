@@ -490,10 +490,10 @@ The register-blocked implementation is the practical Canny stopping point
 unless a correctness defect or large regression appears. Explicit x-direction
 SIMD, packing or line buffers, transpose/layout normalization, architecture or
 footprint dispatch, and a controlled thread-scaling study are valid separate
-research topics, not obligations for this operator. Before presentation on a
-different CPU such as the AMD DevCloud Xeon VM, sanity-check the selected path
-and report any differing behavior rather than assuming Zen 3 or Tiger Lake
-results transfer.
+research topics, not obligations for this operator. Before reusing these
+findings on a different CPU such as the AMD DevCloud Xeon VM, sanity-check the
+selected path and report any differing behavior rather than assuming Zen 3 or
+Tiger Lake results transfer.
 
 A later revised-operator run also showed an abnormally slow Gaussian stage on
 a smaller image on the Ryzen 7 5700X. That result is pending investigation and

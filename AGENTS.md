@@ -92,16 +92,18 @@ evidence. Deleting a file from the working tree does not remove it from history;
 never rewrite or filter history without separate explicit maintainer approval.
 
 The approved preferred publication milestone is a working, documented, and
-reasonably tested refined CPU operator. If the proposed autumn 2026 Ohio State
-Open Source Club ROCm presentation is scheduled before that milestone can
-reasonably be completed, the approved alternative is publication by
-presentation day as a clearly labeled experimental work in progress. In that
-case, prioritize a validated and accurately described presentation
-demonstration rather than rushing unfinished prototype code into the package.
-Neither path waives licensing, provenance, credential, or other publication-
-safety review. GPU/ROCm package completion, alpha integration, exhaustive
-benchmarks, batch/video work, proxy refinements, and separate GPU
-execution-motif research do not inherently block publication. Consult
+reasonably tested refined CPU operator. The Ohio State Open Source Club ROCm
+presentation was approved in late October and is scheduled for November 3,
+2026, so publication no later than presentation day is now an active project
+deadline. If the CPU-first milestone cannot reasonably be completed by then,
+publish a clearly labeled experimental work in progress rather than treating
+CPU completion as a gate. Presentation implementation and orchestration belong
+in the separate local-only presentation-support repository and session; do not
+rush them or unfinished prototype code into this package. Neither publication
+path waives licensing, provenance, credential, or other publication-safety
+review. GPU/ROCm package completion, alpha integration, exhaustive benchmarks,
+batch/video work, proxy refinements, and separate GPU execution-motif research
+do not inherently block publication. Consult
 [`docs/publication-readiness.md`](docs/publication-readiness.md) for the paths,
 non-blockers, and review checklist, and
 [`docs/proposed-rocm-presentation.md`](docs/proposed-rocm-presentation.md) for

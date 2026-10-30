@@ -107,9 +107,9 @@ completing or publishing this repository.
 References to the separate ROCm cloud-bootstrap work mean environment bring-up
 and small CUDA/HIP portability experiments performed elsewhere. That work is
 not a dependency or a required part of this repository. More terminology and
-the bounded public-release proposal are in
+the bounded public-release policy are in
 [`docs/publication-readiness.md`](docs/publication-readiness.md).
-The proposed autumn 2026 Ohio State Open Source Club presentation and its
+The scheduled November 3, 2026 Ohio State Open Source Club presentation and its
 relationship to this repository are described separately in
 [`docs/proposed-rocm-presentation.md`](docs/proposed-rocm-presentation.md).
 
@@ -170,9 +170,9 @@ irregular connectivity remains hard.
   evolves.
 - `docs/publication-readiness.md` explains related-work terminology and the
   bounded paths and review criteria for an initial public experimental release.
-- `docs/proposed-rocm-presentation.md` explains the proposed autumn 2026 ROCm
-  presentation, its demonstration boundaries, and its conditional publication
-  trigger.
+- `docs/proposed-rocm-presentation.md` explains the scheduled November 3, 2026
+  ROCm presentation, its separation from this checkout's implementation work,
+  and the resulting publication deadline.
 - `docs/operator-contract.md` defines the reviewed initial public behavior that
   the refined implementation must satisfy.
 - `docs/provenance-and-ai-assistance.md` separates third-party algorithm
@@ -522,17 +522,14 @@ documented, reasonably tested refined CPU operator with verified basic
 installation and execution instructions. It is not yet satisfied by the
 current scaffolding.
 
-There is one conditional alternative. If the proposed autumn 2026 Ohio State
-Open Source Club ROCm presentation is scheduled before the CPU-first milestone
-can reasonably be completed, publish by presentation day as a clearly labeled
-experimental work in progress. The investigated ROCm 7.2.3 RPP package does
-not export the legacy Canny API, and the legacy implementation has substantive
-semantic defects, so it is not currently a viable same-semantics demonstration
-or baseline. A presentation may instead use separately validated bug-fixed
-CPU/GPU prototype scripts that are not packaged here, provided their status and
-relationship to the checkout are explicit. The deadline should not cause
-incomplete functionality to be rushed
-into `src/custom_canny_xpu`, and it does not waive publication-safety review.
+The Ohio State Open Source Club ROCm presentation is scheduled for November 3,
+2026, so this repository must become public no later than presentation day. If
+the CPU-first milestone is not reasonably complete by then, publish the current
+checkout as a clearly labeled experimental work in progress rather than delay
+for CPU completion. Presentation-specific implementation and orchestration now
+live in a separate local-only repository and are not package work here. The
+deadline should not cause incomplete functionality to be rushed into
+`src/custom_canny_xpu`, and it does not waive publication-safety review.
 
 Optional GPU backends, CUDA/ROCm validation, alpha integration, comprehensive
 benchmarking, batch/video support, proxy refinements, and the separate
@@ -605,8 +602,8 @@ when completing a parent item.
    end-to-end run as representative.
 
 The full roadmap is not a public-release checklist. The preferred CPU-first
-milestone, conditional presentation-triggered path, and narrower review
-criteria are documented separately in
+milestone, active November 3 publication deadline, and narrower review criteria
+are documented separately in
 [`docs/publication-readiness.md`](docs/publication-readiness.md).
 
 ## Provenance and LLM assistance

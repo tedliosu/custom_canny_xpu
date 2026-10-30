@@ -5,9 +5,9 @@ project. Public availability is not the same promise as a stable packaged
 release or a production-supported software product, and it does not require
 completion of the full README roadmap.
 
-This document defines the approved publication paths and bounded review
-checklist. It does not declare that the current checkout is ready, set a release
-date, or authorize destructive cleanup.
+This document defines the approved publication paths, the November 3, 2026
+public-visibility deadline, and a bounded review checklist. It does not declare
+that the current checkout is already ready or authorize destructive cleanup.
 
 ## Release levels
 
@@ -93,25 +93,22 @@ The current checkout remains earlier than this milestone: the complete
 CPU operator, supported dependency metadata, and verified installation/use
 instructions are not yet present.
 
-## Conditional presentation path
+## Scheduled presentation deadline
 
-The proposed autumn 2026 Ohio State Open Source Club ROCm presentation has no
-confirmed date. If it is scheduled before the CPU-first milestone can
-reasonably be completed, the approved alternative is to make this repository
-public no later than presentation day as a clearly labeled experimental work
-in progress.
+The Ohio State Open Source Club ROCm presentation was approved around October
+26, 2026 and is scheduled for November 3, 2026. The repository must become
+public no later than presentation day. The refined CPU-first milestone remains
+the preferred readiness level if it can reasonably be completed before then;
+otherwise, publish the repository as a clearly labeled experimental work in
+progress with its unfinished package state and limitations stated accurately.
 
-Under that path, prioritize preparing and validating the actual demonstration
-instead of rushing incomplete functionality into `src/custom_canny_xpu`. The
-demonstration may use bug-fixed CPU/GPU prototype scripts that are not yet
-integrated into this package. The investigated ROCm 7.2.3 RPP package does not
-export the legacy Canny API, whose older implementation also failed the needed
-semantic review, so RPP is not currently a viable Canny demonstration route.
-Documentation must identify that route as external experimental work rather
-than installed repository functionality and must distinguish its evidence from
-results reproduced from committed code.
+Presentation preparation now lives in a separate local-only repository and
+dedicated session. Do not move presentation-specific wrappers, orchestration,
+or deadline-driven prototype changes into `src/custom_canny_xpu`. Any external
+demonstration must remain accurately distinguished from installed package
+functionality and from evidence reproduced from committed canonical code.
 
-The presentation deadline does not waive the review below. A material license,
+The November 3 deadline does not waive the review below. A material license,
 attribution, provenance, credential, privacy, or other publication-safety
 blocker must be escalated to the maintainer. Do not publish unsafe material or
 perform destructive cleanup without separate approval. The presentation's
@@ -120,7 +117,8 @@ purpose, audience, environment history, and scope boundaries are recorded in
 
 ## Non-blocking future work
 
-Neither publication path requires:
+Neither the preferred CPU-first readiness level nor the scheduled WIP fallback
+requires:
 
 - the optional refined GPU implementation;
 - complete CUDA or ROCm validation;
