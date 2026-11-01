@@ -567,15 +567,19 @@ stage speedup. Report filter footprint as well as image size, and compare GPU
 platforms without assigning a difference to microarchitecture alone when
 generation, resource count, cache, memory, power, clocks, or software differ.
 
-Use HPC-Dwarfs' TheBandwidthBenchmark as the tentative first-order CPU/GPU
-Canny speedup proxy now that specialized CPU CCA is intentionally parallel.
-Compare a workload-appropriate range or mix of streaming kernels under matched
-hardware/software and current operator conditions; do not select one favorable
-bandwidth ratio. State that sparse/scattered CCA parent accesses, topology,
-root chasing, CPU seams, GPU atomics/contention, stencil reuse, NMS gathers,
-and synchronization are not represented by contiguous streaming kernels.
-Validate the proxy descriptively against actual current Canny rather than
-claiming an exact prediction.
+Use controlled Canny measurements as the primary CPU/GPU performance evidence.
+A minimally patched BabelStream v5.0 result may provide approximate
+same-instance streaming-bandwidth context, but it is not a direct Canny
+predictor or an expected-speedup formula. When reporting streaming context,
+use a workload-appropriate range or mix of kernels under matched hardware and
+software conditions rather than selecting one favorable ratio. State that
+sparse/scattered CCA parent accesses, topology, root chasing, CPU seams, GPU
+atomics/contention, stencil reuse, NMS gathers, and synchronization are not
+represented by contiguous streaming kernels. Do not report the archived
+MI300X virtualized environment's BabelStream rates as a percentage of
+advertised peak or as an absolute bandwidth-efficiency measurement. HPC-Dwarfs'
+TheBandwidthBenchmark is not an active proxy: its reviewed HIP smoke failed
+with an illegal memory access and produced no valid HIP evidence.
 
 Treat the historical copy/label/NMS-lite proxy as a coarse streaming,
 regular-local, and irregular-connectivity motif probe, not an exact Canny
@@ -639,6 +643,14 @@ private APIs. Use clean public timing boundaries when available. Asymmetric
 stage detail is acceptable because the references are semantic or contextual
 baselines rather than reverse-engineering targets.
 
+Treat the accepted one-shot scikit-image and hipCIM presentation timings as
+correctness-reference timing, not a publishable custom-versus-library speedup.
+A future performance comparison must warm and repeat custom and library calls
+under matched input, dtype, sigma, thresholds, border and semantic contracts,
+allocation, compilation, transfer, residency, and timing boundaries, while
+pairing performance with correctness. Use cuCIM for the NVIDIA/CUDA library
+and hipCIM for the AMD/HIP library.
+
 ## Dependencies and environment safety
 
 Do not install, upgrade, downgrade, or remove Python or system packages unless
@@ -670,9 +682,10 @@ default. Preserve their durable findings, boundaries, and provenance in
 documentation without turning this checkout into an informal experiment
 workspace. The compact copy/label/NMS-lite operator-class proxy is historical;
 do not import or elaborate it merely because its results remain documented.
-TheBandwidthBenchmark is an external, maintained benchmark used as a tentative
-comparison tool, not code that this repository must vendor or turn into a
-general harness.
+The failed TheBandwidthBenchmark HIP trial is historical diagnostic evidence,
+not a comparison result. The presentation's BabelStream patch and runner also
+remain external unless the maintainer separately scopes their integration; do
+not turn this repository into a general streaming-benchmark harness.
 
 The proxy's generic-label workload is historical and does not model the current
 specialized CCA predicate. Do not restore it as a principal quantitative model

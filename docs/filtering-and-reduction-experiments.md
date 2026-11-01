@@ -129,43 +129,64 @@ The 14–15x GPU/CPU ratio reflects the complete reduction executions and memory
 systems. It is not evidence that NumPy is poorly implemented, nor does it alone
 explain the roughly 20–23x refined gradient-stage ratio.
 
-## TheBandwidthBenchmark as a tentative Canny proxy
+## Streaming-bandwidth context and the failed TheBandwidthBenchmark trial
 
-[HPC-Dwarfs' TheBandwidthBenchmark](https://github.com/HPC-Dwarfs/TheBandwidthBenchmark)
-provides matched CPU/GPU streaming kernels with explicit load, store, and
-write-allocate patterns. Now that the refined CPU direction parallelizes both
-regular stages and specialized CCA sufficiently to approach hardware-limited
-memory behavior, this benchmark is the tentative coarse proxy for anticipating
-CPU/GPU Canny speedup. It supersedes the copy/label/NMS-lite script as the
-current proxy direction; that older script remains historical operator-class
-evidence.
+Controlled Canny timings are the primary performance evidence. During the
+November 2026 presentation work, HPC-Dwarfs'
+[TheBandwidthBenchmark](https://github.com/HPC-Dwarfs/TheBandwidthBenchmark)
+at commit `45c4344796042291ee8a4c7361216aeb06664127` built for CPU and HIP, but
+the HIP smoke failed with an illegal memory access in or after its
+reduction/sum kernel. It produced no valid HIP bandwidth result and is invalid
+as Canny evidence. The completed CPU smoke and failure diagnosis may remain
+historical engineering context, but this benchmark is no longer an active
+proxy recommendation.
 
-In the recorded Ryzen 7 5700X / RTX 5000 Ada experiment, the benchmark's CPU
-store kernels converged near 35.5–36 GB/s of write-allocation-adjusted traffic
-at 16 threads, while representative GPU kernels were roughly 480–545 GB/s.
-Depending on whether a kernel overwrote a separate output or updated already
-loaded storage, observed GPU/CPU ratios ranged from roughly 13.6–14.7x for
-no-extra-write-allocation cases into roughly 18–30x for write-allocate-affected
-cases. An external specialized Canny generation measured about 18.5x under one
-configuration. That proximity motivates the proxy; it is not yet a validated
-predictive formula for the integrated operator.
+An older Ryzen 7 5700X / RTX 5000 Ada trial remains valid historical streaming
+evidence for its recorded configuration. The benchmark exposed matched
+CPU/GPU streaming kernels with explicit load, store, and write-allocation
+patterns. CPU store kernels converged near 35.5–36 GB/s of
+write-allocation-adjusted traffic at 16 threads, while representative GPU
+kernels were roughly 480–545 GB/s. Ratios ranged from about 13.6–14.7x for
+cases without an extra write-allocation effect into roughly 18–30x for
+write-allocate-affected cases. One external specialized Canny generation
+measured about 18.5x under a different operator contract. That numerical
+proximity motivated the former proxy hypothesis; it did not validate a
+predictive formula, and the later failed HIP smoke supplies no corroborating
+HIP result.
 
-Use an appropriate mix or range of streaming kernels rather than selecting one
-favorable bandwidth number. CPU write allocation, non-temporal stores, thread
+The accepted presentation evidence instead used BabelStream v5.0 commit
+`f6ae48de899408cf50c24079417dc71a03dbb5a8` with a minimal external patch that
+disabled Dot while leaving the retained streaming kernels and array validation
+unchanged (patch SHA-256
+`4c84c36bdab7ec9fa547ea78d48551c9234fe74b10bf296c352d04ea1e80a12a`).
+Dot's large float32 validation failed its tight summation tolerance on both CPU
+and HIP; the selected Canny-relevant context used Copy, Triad, and separately
+run Nstream. The patch and runner remain presentation artifacts outside this
+repository and are not approved integration work.
+
+Those BabelStream measurements provide approximate same-instance
+streaming-bandwidth context only. CPU/GPU ratios can help explain the broad
+hardware setting, but they are not an expected Canny speedup formula, a direct
+Canny predictor, or evidence of percentage-of-advertised-peak efficiency for
+the archived MI300X virtualized environment. The archive lacks enough
+allocation telemetry to explain its absolute rates, and a later VM cannot
+retroactively characterize that allocation.
+
+Use a workload-appropriate range or mix of retained streaming kernels rather
+than one favorable number. CPU write allocation, non-temporal stores, thread
 count, affinity, working-set size, memory domains, GPU launch parameters, and
-compiler choices can all change the comparison. Match the benchmark and Canny
-environment and dimensions where practical, and recompute the proxy whenever
-the operator generation or stage mix changes.
+compiler choices can all change the comparison. Match hardware, software, and
+workload conditions where practical. If the Canny generation or stage mix
+changes, reconsider the contextual interpretation without rewriting the raw
+streaming measurements.
 
-The most important mismatch is hysteresis. Specialized CCA can perform sparse
-or scattered parent/root accesses, topology-dependent root chasing, seam work
-on CPU, and atomics/contention on GPU. These are not represented by contiguous
-streaming kernels. Filtering footprint, arithmetic and address generation,
-cache reuse, NMS gathers, synchronization, and materialization choices also
-remain outside a pure bandwidth proxy. Report TheBandwidthBenchmark as a
-first-order hardware-throughput expectation, then explain deviations with
-stage timings and connectivity/content evidence rather than claiming it
-exactly predicts Canny.
+Specialized CCA performs sparse or scattered parent/root accesses,
+topology-dependent root chasing, CPU seam work, and GPU atomics/contention.
+Contiguous streaming kernels also omit filtering footprint, arithmetic and
+address generation, cache reuse, NMS gathers, synchronization,
+materialization, and image-content effects. Explain current Canny behavior
+with controlled operator and stage timings plus connectivity/content evidence;
+use streaming results only as bounded context.
 
 ## Exploratory CPU suspect operations
 

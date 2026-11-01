@@ -96,13 +96,30 @@ Gaussian-footprint experiment. A changed CPU filtering implementation can make
 a proxy-to-Canny interpretation stale without changing the raw measurements
 from the original proxy script.
 
-The current tentative proxy uses HPC-Dwarfs' TheBandwidthBenchmark as a
-first-order CPU/GPU hardware-throughput expectation. Its raw streaming results
-retain their own evidence identity, while any inferred Canny ratio depends on
-the matched operator generation, dimensions, threading, compiler/runtime,
-hardware configuration, and selected kernel mix. A CCA or stage-composition
-change can invalidate the inferred ratio without invalidating the bandwidth
-measurements themselves.
+Controlled Canny measurements are the primary performance evidence. The
+reviewed TheBandwidthBenchmark HIP smoke failed with an illegal memory access,
+so it produced no valid HIP bandwidth result and cannot support a Canny proxy
+interpretation. Preserve the failure only as diagnostic history.
+
+The accepted presentation instead uses minimally patched BabelStream v5.0
+results as approximate same-instance streaming-bandwidth context. Those raw
+measurements retain their own evidence identity, but their CPU/GPU ratios are
+not a direct Canny prediction or percentage-of-advertised-peak result. They do
+not model specialized CCA topology and parent chasing, CPU seams, GPU atomics
+and contention, NMS gathers, stencil reuse, or synchronization. Integrating
+the presentation patch or runner remains separately scoped future work.
+
+Any descriptive bandwidth-to-Canny comparison still depends on the matched
+operator generation, dimensions, threading, compiler/runtime, hardware
+configuration, and selected kernel mix. A CCA or stage-composition change can
+invalidate that interpretation without invalidating the underlying valid
+streaming measurements themselves.
+
+The accepted one-shot scikit-image and hipCIM timings have correctness-reference
+status rather than controlled performance-baseline status. A future speedup
+claim requires warmed, repeated, boundary-matched custom and library runs with
+the same semantic and workload contract, explicit allocation/compilation/
+transfer/residency boundaries, and paired correctness evidence.
 
 ## Absolute-threshold and prototype-generation transition
 

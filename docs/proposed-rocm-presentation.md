@@ -4,6 +4,13 @@ The Ohio State Open Source Club approved this presentation around October 26,
 2026, and it is scheduled for November 3, 2026. It is distinct from the
 maintainer's autumn 2025 ROCm/OpenCV Canny presentation.
 
+The approved title and subtitle are:
+
+> **ROCm Beyond GenAI: Finding Edges with AMD GPUs**
+>
+> **Building and benchmarking a parallel Canny edge detector with Python,
+> Numba, CuPy, and HIP**
+
 This note records the repository-owned relationship so readers do not need
 access to earlier talks, private prototypes, cloud systems, or AI-assistant
 conversations to understand the presentation. Presentation preparation now
@@ -56,6 +63,13 @@ Any presentation material must distinguish:
 - Canny-only timing from reference comparison, transfers, and other timing
   boundaries.
 
+Controlled Canny measurements are the primary performance evidence. Patched
+BabelStream results are approximate same-instance streaming-bandwidth context,
+not a direct Canny predictor or percentage-of-peak claim. The failed
+TheBandwidthBenchmark HIP smoke is not usable evidence. One-shot scikit-image
+and hipCIM timings are correctness-reference timing; a custom-versus-library
+speedup requires a future warmed, repeated, boundary-matched comparison.
+
 If necessary, the demonstration may use bug-fixed CPU/GPU prototype scripts
 that remain external to this package. Their use must be disclosed accurately;
 it does not make them packaged functionality or current repository evidence.
@@ -103,3 +117,8 @@ the separate ROCm bootstrap work, integration of an RPP demonstration, or every
 planned benchmark. The optional validation-cost investigation described in
 [`operator-contract.md`](operator-contract.md#reference-disagreement) is
 likewise neither presentation work nor a publication prerequisite.
+
+After the publication audit and separately authorized visibility change, the
+club announcement and slides should link both the stable public repository URL
+and the immutable canonical commit used for publication. Do not record a
+future commit hash here before that revision exists.

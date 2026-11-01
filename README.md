@@ -378,15 +378,19 @@ CPU-RAM versus GPU-VRAM bandwidth is not an expected ceiling on speedup when
 overlapping windows create cache reuse and increase regular arithmetic,
 addressing, or instruction work per externally fetched byte.
 
-[HPC-Dwarfs' TheBandwidthBenchmark](https://github.com/HPC-Dwarfs/TheBandwidthBenchmark)
-is the tentative first-order proxy for CPU/GPU Canny speedup now that the
-refined CPU direction parallelizes specialized CCA as well as the regular
-stages. Use a range or workload-appropriate mix of its streaming kernels rather
-than one favorable ratio, and match the current operator generation and
-environment. It remains approximate: sparse/scattered parent accesses,
-topology-dependent root chasing, CPU seam work, GPU atomics, stencil reuse, and
-NMS gathers are not contiguous streaming bandwidth. Detailed evidence lives in
-[`docs/filtering-and-reduction-experiments.md`](docs/filtering-and-reduction-experiments.md#thebandwidthbenchmark-as-a-tentative-canny-proxy).
+Controlled Canny timings are the primary performance evidence. The accepted
+presentation evidence uses a minimally patched BabelStream v5.0 run only as
+approximate same-instance streaming-bandwidth context. Its CPU/GPU ratios are
+not a direct Canny predictor or a percentage-of-peak measurement: contiguous
+streaming kernels do not reproduce sparse/scattered CCA parent accesses,
+topology-dependent root chasing, CPU seam work, GPU atomics/contention,
+stencil reuse, NMS gathers, or synchronization. Use a representative range of
+streaming kernels under matched conditions rather than selecting one favorable
+ratio. A reviewed
+TheBandwidthBenchmark HIP smoke instead failed with an illegal memory access
+and is invalid as HIP bandwidth or Canny evidence. Detailed status and limits
+live in
+[`docs/filtering-and-reduction-experiments.md`](docs/filtering-and-reduction-experiments.md#streaming-bandwidth-context-and-the-failed-thebandwidthbenchmark-trial).
 
 Hysteresis must be exercised on multiple content classes. Its connectivity
 graph, component distribution, root-chain behavior, and convergence can change
@@ -425,7 +429,8 @@ Useful baselines serve different purposes:
 - scikit-image: semantic/reference behavior;
 - the refined NumPy/Numba implementation: tuned scientific Python CPU;
 - the refined CuPy/CuPyX implementation: custom CUDA/ROCm GPU;
-- cuCIM/hipCIM: directly interoperable GPU-library context where available;
+- cuCIM: directly interoperable NVIDIA/CUDA GPU-library context;
+- hipCIM: corresponding AMD/HIP GPU-library context where supported;
 - NVIDIA NPP/NPP Plus and AMD RPP: vendor-native image-processing prior art;
 - OpenCV: mature production-native context, not a required semantic match.
 
@@ -456,6 +461,14 @@ For third-party references, prefer public timing boundaries such as the whole
 Canny operator, grayscale plus Canny, and device-only versus transfer-inclusive
 execution. Do not vendor or patch a reference, modify site-packages, or depend
 on private APIs merely to manufacture matching stage boundaries.
+
+The accepted presentation's one-shot scikit-image and hipCIM calls are
+correctness-reference timing, not a boundary-matched performance comparison.
+A future publishable custom-versus-library comparison must warm and repeat both
+sides with identical input, dtype, sigma, thresholds, border and semantic
+contracts, and explicit allocation, compilation, transfer, residency, and
+timing boundaries. Performance must remain paired with correctness. Until that
+work exists, do not derive a library speedup from those one-shot calls.
 
 ## Dependencies and environments
 
@@ -591,11 +604,15 @@ when completing a parent item.
    lint/type-check configuration for refined code. Decide separately how much
    checking applies to frozen alpha artifacts.
 7. Regenerate reproducible benchmark evidence before publishing exact
-   performance or speedup claims. Evaluate a matched
-   TheBandwidthBenchmark-to-Canny comparison as the tentative coarse proxy,
-   preserving the CCA and non-streaming caveats; keep narrow diagnostic scripts
-   external. Add explicit fresh-JIT versus cache-loaded controls to the future
-   driver. Any opt-in
+   performance or speedup claims, using controlled Canny timings as the primary
+   evidence. Add a warmed, repeated, boundary-matched custom-versus-scikit-image
+   and custom-versus-cuCIM/hipCIM comparison with correctness checks. Keep the
+   accepted BabelStream result as approximate same-instance streaming context,
+   not a Canny predictor or percentage-of-peak claim; the failed
+   TheBandwidthBenchmark HIP smoke is invalid evidence. Keep both external
+   benchmark implementations out of this repository unless separately scoped.
+   Add explicit fresh-JIT versus cache-loaded controls to the future driver.
+   Any opt-in
    diagnostic path for the faster intended embedded-gufunc code must be
    version-checked, output-validated, and non-default. Investigate the anomalous
    small-image Ryzen 7 5700X Gaussian timing independently before treating that

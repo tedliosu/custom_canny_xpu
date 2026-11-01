@@ -363,15 +363,19 @@ It would then measure compatible proxy ratios and actual Canny speedup under
 that setup and compare them descriptively. The project no longer plans this as
 its current proxy direction.
 
-The current tentative proxy direction instead uses HPC-Dwarfs'
+A later tentative proxy direction considered HPC-Dwarfs'
 [TheBandwidthBenchmark](https://github.com/HPC-Dwarfs/TheBandwidthBenchmark)
-as a first-order hardware-throughput model. The newer CPU CCA removes much of
-the old generic-labeling parallelism mismatch, making a matched streaming
-bandwidth range more relevant to the overall CPU/GPU comparison. It still does
-not model sparse/scattered CCA accesses, topology, root traversal, seam work,
-atomics, stencil reuse, or NMS gathers. See
-[`filtering-and-reduction-experiments.md`](filtering-and-reduction-experiments.md#thebandwidthbenchmark-as-a-tentative-canny-proxy)
-for the current evidence and reporting limits.
+as a first-order hardware-throughput model after specialized CPU CCA reduced
+the old generic-labeling parallelism mismatch. The November 2026 HIP smoke then
+failed with an illegal memory access and produced no valid HIP bandwidth result,
+so that direction is superseded and invalid as current Canny evidence.
+Controlled Canny timings are primary; minimally patched BabelStream results may
+provide approximate same-instance streaming context without predicting Canny.
+Neither streaming benchmark models sparse/scattered CCA access, topology, root
+traversal, CPU seam work, GPU atomics/contention, stencil reuse, or NMS gathers.
+See
+[`filtering-and-reduction-experiments.md`](filtering-and-reduction-experiments.md#streaming-bandwidth-context-and-the-failed-thebandwidthbenchmark-trial)
+for the evidence status and reporting limits.
 
 The proxy's existing NMS-lite payload comment undercounts source-level logical
 accesses. Its kernel reads center, left, right, up, down, `gx`, and `gy`, then
@@ -588,8 +592,9 @@ One AMD DevCloud MI300X VF observation used a ROCm 7.0.2-era stack, Python
 3.12.3, CuPy 13.5.1 for ROCm, and AMD-packaged hipCIM 25.10.0. For a roughly
 122.99 MP workload it reported about 28.4 ms total device work, 20.9 ms
 Canny-only, and 13.5–13.7 ms hysteresis. The hipCIM-style reference was about
-31.2 ms Canny-only. This one environment suggested roughly a 1.5x custom
-advantage, not a general MI300X result.
+31.2 ms Canny-only. This was not a warmed, repeated, boundary-matched library
+comparison, so retain the number only as historical correctness-reference
+timing rather than a custom speedup or general MI300X result.
 
 Do not compare those figures directly with Ada as though hardware were the only
 variable. CuPy generations, CUDA versus ROCm compilers, warp32 versus wave64,
@@ -748,8 +753,9 @@ RPP's host API as prior art does not open a separate CPU-baseline search.
 
 In one roughly 122.99 MP fp32 grayscale CUDA comparison, cuCIM took about
 40.1 ms and the custom implementation about 35.0 ms. The roughly 14–15%
-difference is evidence that cuCIM is a strong directly interoperable baseline,
-not evidence that it is poorly optimized or globally fastest.
+difference is informal historical motivation for treating cuCIM as a strong
+directly interoperable baseline, not a controlled custom-versus-library result
+or evidence that cuCIM is poorly optimized or globally fastest.
 
 Kornia was also evaluated as a PyTorch-native reference. Reported results
 included roughly 1.96 s CPU execution at 3840x2160, roughly 693 ms GPU-only on a

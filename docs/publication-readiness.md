@@ -39,9 +39,12 @@ repository's visibility setting to communicate maturity.
 - **Operator-class proxy** means the compact copy/label/NMS-lite benchmark that
   historically sampled streaming, regular-local, and generic-labeling work. It
   is not a Canny implementation, current harness candidate, or exact predictor.
-- **TheBandwidthBenchmark proxy** means the external HPC-Dwarfs streaming
-  benchmark used as a tentative first-order CPU/GPU Canny speedup expectation.
-  It does not model sparse/scattered CCA or replace current operator evidence.
+- **Streaming-bandwidth context** means an external, minimally patched
+  BabelStream v5.0 run used only to contextualize same-instance CPU/GPU
+  streaming behavior. It is not a direct Canny predictor, a percentage-of-peak
+  result, or a replacement for controlled Canny evidence. The earlier
+  TheBandwidthBenchmark HIP smoke failed with an illegal memory access and is
+  invalid as HIP bandwidth or Canny evidence.
 - **Historical cc3d binding** means the superseded custom binding to the
   external LGPL `connected-components-3d` project. Specialized CPU CCA removes
   the need to integrate or depend on it; its old experiments and provenance
