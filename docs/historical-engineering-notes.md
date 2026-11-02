@@ -833,7 +833,8 @@ research project.
 
 The operator may be used as one low-arithmetic-intensity case with mostly
 regular access patterns over pixel data in a broader GPU execution-motif study
-or the separately scoped November 3, 2026 ROCm presentation. The
+or the separately scoped 2026 ROCm presentation. Current scheduling status:
+**presentation postponed; new date to be announced**. The
 execution-motif study compares representative GPU workloads by characteristics
 such as arithmetic intensity and memory-access regularity; it is not part of
 this repository.

@@ -5,9 +5,10 @@ project. Public availability is not the same promise as a stable packaged
 release or a production-supported software product, and it does not require
 completion of the full README roadmap.
 
-This document defines the approved publication paths, the November 3, 2026
-public-visibility deadline, and a bounded review checklist. It does not declare
-that the current checkout is already ready or authorize destructive cleanup.
+This document defines the approved publication paths, records the satisfied
+presentation-driven public-visibility gate, and preserves a bounded review
+checklist. It does not declare a stable packaged release or authorize
+destructive cleanup.
 
 ## Release levels
 
@@ -96,14 +97,15 @@ The current checkout remains earlier than this milestone: the complete
 CPU operator, supported dependency metadata, and verified installation/use
 instructions are not yet present.
 
-## Scheduled presentation deadline
+## Presentation publication gate
 
 The Ohio State Open Source Club ROCm presentation was approved around October
-26, 2026 and is scheduled for November 3, 2026. The repository must become
-public no later than presentation day. The refined CPU-first milestone remains
-the preferred readiness level if it can reasonably be completed before then;
-otherwise, publish the repository as a clearly labeled experimental work in
-progress with its unfinished package state and limitations stated accurately.
+26, 2026 and was originally scheduled for November 3, 2026. The repository was
+made public as a clearly labeled experimental work in progress before that
+date, satisfying the presentation-day gate while its CPU-first milestone
+remained incomplete. Current scheduling status: **presentation postponed; new
+date to be announced**. The refined CPU-first milestone remains the preferred
+development target.
 
 Presentation preparation now lives in a separate local-only repository and
 dedicated session. Do not move presentation-specific wrappers, orchestration,
@@ -111,17 +113,18 @@ or deadline-driven prototype changes into `src/custom_canny_xpu`. Any external
 demonstration must remain accurately distinguished from installed package
 functionality and from evidence reproduced from committed canonical code.
 
-The November 3 deadline does not waive the review below. A material license,
-attribution, provenance, credential, privacy, or other publication-safety
-blocker must be escalated to the maintainer. Do not publish unsafe material or
-perform destructive cleanup without separate approval. The presentation's
-purpose, audience, environment history, and scope boundaries are recorded in
+The original publication deadline did not waive the review below. A material
+license, attribution, provenance, credential, privacy, or other
+publication-safety blocker must be escalated to the maintainer. Do not publish
+unsafe material or perform destructive cleanup without separate approval. The
+presentation's purpose, audience, environment history, and scope boundaries
+are recorded in
 [`proposed-rocm-presentation.md`](proposed-rocm-presentation.md).
 
 ## Non-blocking future work
 
-Neither the preferred CPU-first readiness level nor the scheduled WIP fallback
-requires:
+Neither the preferred CPU-first readiness level nor the completed WIP
+publication path requires:
 
 - the optional refined GPU implementation;
 - complete CUDA or ROCm validation;

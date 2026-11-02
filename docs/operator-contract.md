@@ -348,8 +348,9 @@ compare CPU and GPU validation cost while separating device-resident
 computation from transfer and reference-setup overhead, but only when a
 concrete validation-cost question and comparable implementations justify the
 work. It is not part of the core benchmark contract, an implementation
-requirement, or a prerequisite for publication or the scheduled November 3,
-2026 ROCm presentation.
+requirement, or a prerequisite for publication or the 2026 ROCm presentation.
+The presentation was originally scheduled for November 3; current scheduling
+status is **presentation postponed; new date to be announced**.
 
 ## Deferred features
 

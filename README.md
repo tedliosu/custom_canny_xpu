@@ -109,9 +109,11 @@ and small CUDA/HIP portability experiments performed elsewhere. That work is
 not a dependency or a required part of this repository. More terminology and
 the bounded public-release policy are in
 [`docs/publication-readiness.md`](docs/publication-readiness.md).
-The scheduled November 3, 2026 Ohio State Open Source Club presentation and its
-relationship to this repository are described separately in
+The approved Ohio State Open Source Club presentation and its relationship to
+this repository are described separately in
 [`docs/proposed-rocm-presentation.md`](docs/proposed-rocm-presentation.md).
+Current scheduling status: **presentation postponed; new date to be
+announced**.
 
 ## Operator model
 
@@ -170,9 +172,9 @@ irregular connectivity remains hard.
   evolves.
 - `docs/publication-readiness.md` explains related-work terminology and the
   bounded paths and review criteria for an initial public experimental release.
-- `docs/proposed-rocm-presentation.md` explains the scheduled November 3, 2026
+- `docs/proposed-rocm-presentation.md` explains the approved but postponed 2026
   ROCm presentation, its separation from this checkout's implementation work,
-  and the resulting publication deadline.
+  and the now-satisfied publication gate.
 - `docs/operator-contract.md` defines the reviewed initial public behavior that
   the refined implementation must satisfy.
 - `docs/provenance-and-ai-assistance.md` separates third-party algorithm
@@ -528,21 +530,21 @@ model of the specialized CCA now intended for hysteresis.
 
 ## Publication status
 
-Making this repository public would publish an experimental project; it would
-not imply a stable API, completed roadmap, packaged release, or production
-support. The approved preferred publication milestone is a working,
+This public repository is an experimental project; its visibility does not
+imply a stable API, completed roadmap, packaged release, or production support.
+The approved preferred publication milestone is a working,
 documented, reasonably tested refined CPU operator with verified basic
 installation and execution instructions. It is not yet satisfied by the
 current scaffolding.
 
-The Ohio State Open Source Club ROCm presentation is scheduled for November 3,
-2026, so this repository must become public no later than presentation day. If
-the CPU-first milestone is not reasonably complete by then, publish the current
-checkout as a clearly labeled experimental work in progress rather than delay
-for CPU completion. Presentation-specific implementation and orchestration now
-live in a separate local-only repository and are not package work here. The
-deadline should not cause incomplete functionality to be rushed into
-`src/custom_canny_xpu`, and it does not waive publication-safety review.
+The Ohio State Open Source Club ROCm presentation was originally scheduled for
+November 3, 2026, and the repository became public as a clearly labeled
+experimental work in progress before that date. Current scheduling status:
+**presentation postponed; new date to be announced**. Presentation-specific
+implementation and orchestration remain in a separate local-only repository
+and are not package work here. A replacement date must not cause incomplete
+functionality to be rushed into `src/custom_canny_xpu`, and it does not waive
+publication-safety review.
 
 Optional GPU backends, CUDA/ROCm validation, alpha integration, comprehensive
 benchmarking, batch/video support, proxy refinements, and the separate
@@ -619,8 +621,8 @@ when completing a parent item.
    end-to-end run as representative.
 
 The full roadmap is not a public-release checklist. The preferred CPU-first
-milestone, active November 3 publication deadline, and narrower review criteria
-are documented separately in
+milestone, satisfied presentation-driven publication gate, and narrower review
+criteria are documented separately in
 [`docs/publication-readiness.md`](docs/publication-readiness.md).
 
 ## Provenance and LLM assistance

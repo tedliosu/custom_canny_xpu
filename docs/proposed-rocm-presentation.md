@@ -1,8 +1,9 @@
-# Approved November 3, 2026 ROCm presentation
+# Approved 2026 ROCm presentation — date to be announced
 
 The Ohio State Open Source Club approved this presentation around October 26,
-2026, and it is scheduled for November 3, 2026. It is distinct from the
-maintainer's autumn 2025 ROCm/OpenCV Canny presentation.
+2026. It was originally scheduled for November 3, 2026 and is distinct from the
+maintainer's autumn 2025 ROCm/OpenCV Canny presentation. Current scheduling
+status: **presentation postponed; new date to be announced**.
 
 The approved title and subtitle are:
 
@@ -17,7 +18,7 @@ conversations to understand the presentation. Presentation preparation now
 lives in a separate local-only repository and dedicated session. This canonical
 repository retains only the durable publication gate, project boundaries, and
 evidence constraints; it does not own talk-specific scripts or orchestration.
-The scheduled presentation does not make package integration a presentation
+The postponed presentation does not make package integration a presentation
 milestone or certify any result as current.
 
 ## Purpose and audience
@@ -102,13 +103,14 @@ deferred validation-cost investigation.
 
 ## Scope and publication relationship
 
-The preferred publication readiness level remains the documented and tested
-refined CPU operator. Independently, the scheduled presentation activates the
-deadline: this repository must become public no later than November 3, 2026.
-If the CPU-first level cannot reasonably be reached by then, publish a clearly
-labeled experimental work in progress, subject to the same publication-safety
-review. See [`publication-readiness.md`](publication-readiness.md) for the
-complete gate and checklist.
+The preferred development milestone remains the documented and tested refined
+CPU operator. The repository was made public as a clearly labeled experimental
+work in progress before the presentation's original November 3, 2026 date,
+satisfying the earlier presentation-day gate subject to the same
+publication-safety review. Current scheduling status: **presentation
+postponed; new date to be announced**. See
+[`publication-readiness.md`](publication-readiness.md) for the complete gate
+and checklist.
 
 Presentation implementation and orchestration stay in the separate local-only
 presentation repository. Preparing the presentation does not require
@@ -118,7 +120,6 @@ planned benchmark. The optional validation-cost investigation described in
 [`operator-contract.md`](operator-contract.md#reference-disagreement) is
 likewise neither presentation work nor a publication prerequisite.
 
-After the publication audit and separately authorized visibility change, the
-club announcement and slides should link both the stable public repository URL
-and the immutable canonical commit used for publication. Do not record a
-future commit hash here before that revision exists.
+The club announcement and slides should link both the stable public repository
+URL and the immutable canonical commit used for publication. Presentation-only
+work does not require this canonical repository to move that pinned revision.
