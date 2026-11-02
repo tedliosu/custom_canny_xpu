@@ -103,8 +103,8 @@ The Ohio State Open Source Club ROCm presentation was approved around October
 26, 2026 and was originally scheduled for November 3, 2026. The repository was
 made public as a clearly labeled experimental work in progress before that
 date, satisfying the presentation-day gate while its CPU-first milestone
-remained incomplete. Current scheduling status: **presentation postponed; new
-date to be announced**. The refined CPU-first milestone remains the preferred
+remained incomplete. Current scheduling status: **presentation rescheduled for
+November 17, 2026**. The refined CPU-first milestone remains the preferred
 development target.
 
 Presentation preparation now lives in a separate local-only repository and

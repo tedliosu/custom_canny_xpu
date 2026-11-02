@@ -94,8 +94,8 @@ never rewrite or filter history without separate explicit maintainer approval.
 The approved preferred publication milestone is a working, documented, and
 reasonably tested refined CPU operator. The Ohio State Open Source Club ROCm
 presentation was approved in late October and was originally scheduled for
-November 3, 2026. Current scheduling status: **presentation postponed; new date
-to be announced**. The repository is now public as a clearly labeled
+November 3, 2026. Current scheduling status: **presentation rescheduled for
+November 17, 2026**. The repository is now public as a clearly labeled
 experimental work in progress, satisfying the prior presentation-day
 publication gate without treating CPU completion as a prerequisite.
 Presentation implementation and orchestration belong in the separate

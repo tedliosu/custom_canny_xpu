@@ -112,8 +112,7 @@ the bounded public-release policy are in
 The approved Ohio State Open Source Club presentation and its relationship to
 this repository are described separately in
 [`docs/proposed-rocm-presentation.md`](docs/proposed-rocm-presentation.md).
-Current scheduling status: **presentation postponed; new date to be
-announced**.
+Current scheduling status: **presentation rescheduled for November 17, 2026**.
 
 ## Operator model
 
@@ -172,9 +171,9 @@ irregular connectivity remains hard.
   evolves.
 - `docs/publication-readiness.md` explains related-work terminology and the
   bounded paths and review criteria for an initial public experimental release.
-- `docs/proposed-rocm-presentation.md` explains the approved but postponed 2026
-  ROCm presentation, its separation from this checkout's implementation work,
-  and the now-satisfied publication gate.
+- `docs/proposed-rocm-presentation.md` explains the approved, rescheduled
+  November 17, 2026 ROCm presentation, its separation from this checkout's
+  implementation work, and the now-satisfied publication gate.
 - `docs/operator-contract.md` defines the reviewed initial public behavior that
   the refined implementation must satisfy.
 - `docs/provenance-and-ai-assistance.md` separates third-party algorithm
@@ -540,9 +539,9 @@ current scaffolding.
 The Ohio State Open Source Club ROCm presentation was originally scheduled for
 November 3, 2026, and the repository became public as a clearly labeled
 experimental work in progress before that date. Current scheduling status:
-**presentation postponed; new date to be announced**. Presentation-specific
+**presentation rescheduled for November 17, 2026**. Presentation-specific
 implementation and orchestration remain in a separate local-only repository
-and are not package work here. A replacement date must not cause incomplete
+and are not package work here. The presentation date must not cause incomplete
 functionality to be rushed into `src/custom_canny_xpu`, and it does not waive
 publication-safety review.
 

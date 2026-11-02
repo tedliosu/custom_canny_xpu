@@ -1,9 +1,9 @@
-# Approved 2026 ROCm presentation — date to be announced
+# Approved November 17, 2026 ROCm presentation
 
 The Ohio State Open Source Club approved this presentation around October 26,
 2026. It was originally scheduled for November 3, 2026 and is distinct from the
 maintainer's autumn 2025 ROCm/OpenCV Canny presentation. Current scheduling
-status: **presentation postponed; new date to be announced**.
+status: **presentation rescheduled for November 17, 2026**.
 
 The approved title and subtitle are:
 
@@ -18,7 +18,7 @@ conversations to understand the presentation. Presentation preparation now
 lives in a separate local-only repository and dedicated session. This canonical
 repository retains only the durable publication gate, project boundaries, and
 evidence constraints; it does not own talk-specific scripts or orchestration.
-The postponed presentation does not make package integration a presentation
+The rescheduled presentation does not make package integration a presentation
 milestone or certify any result as current.
 
 ## Purpose and audience
@@ -108,7 +108,7 @@ CPU operator. The repository was made public as a clearly labeled experimental
 work in progress before the presentation's original November 3, 2026 date,
 satisfying the earlier presentation-day gate subject to the same
 publication-safety review. Current scheduling status: **presentation
-postponed; new date to be announced**. See
+rescheduled for November 17, 2026**. See
 [`publication-readiness.md`](publication-readiness.md) for the complete gate
 and checklist.
 

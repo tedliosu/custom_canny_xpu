@@ -350,7 +350,7 @@ concrete validation-cost question and comparable implementations justify the
 work. It is not part of the core benchmark contract, an implementation
 requirement, or a prerequisite for publication or the 2026 ROCm presentation.
 The presentation was originally scheduled for November 3; current scheduling
-status is **presentation postponed; new date to be announced**.
+status is **presentation rescheduled for November 17, 2026**.
 
 ## Deferred features
 
